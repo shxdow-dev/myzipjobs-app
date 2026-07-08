@@ -1,0 +1,15 @@
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-warmWhite text-charcoal font-body;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
