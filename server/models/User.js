@@ -70,6 +70,31 @@ const userSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    time: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    wages: {
+      min: {
+        type: Number,
+        default: 0,
+      },
+      max: {
+        type: Number,
+        default: 0,
+      },
+    },
+    gender: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    membersRequired: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     postedAgo: {
       type: Date,
       default: Date.now,

@@ -5,6 +5,7 @@ import http from "http";
 import mongoose from "mongoose";
 import { Server } from "socket.io";
 import matchesRouter from "./routes/matches.js";
+import messagesRouter from "./routes/messages.js";
 import recommendRouter from "./routes/recommend.js";
 import seedRouter from "./routes/seed.js";
 import swipeRouter from "./routes/swipe.js";
@@ -41,6 +42,18 @@ io.on("connection", (socket) => {
       }
     }
   });
+
+  socket.on("joinRoom", (matchId) => {
+    if (matchId) {
+      socket.join(String(matchId));
+    }
+  });
+
+  socket.on("leaveRoom", (matchId) => {
+    if (matchId) {
+      socket.leave(String(matchId));
+    }
+  });
 });
 
 app.use(
@@ -59,6 +72,7 @@ app.use("/api/users", usersRouter);
 app.use("/api/recommend", recommendRouter);
 app.use("/api/swipe", swipeRouter);
 app.use("/api/matches", matchesRouter);
+app.use("/api/messages", messagesRouter);
 app.use("/api/seed", seedRouter);
 
 app.use((err, _req, res, _next) => {
@@ -82,7 +96,16 @@ async function startServer() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("MongoDB connected successfully ✅");
+    
     const port = Number(process.env.PORT) || 5000;
+    
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is busy. Kill it with: taskkill /F /PID $(netstat -ano | findstr :${port})`);
+        process.exit(1);
+      }
+    });
+
     server.listen(port, () => {
       console.log(`Server running on http://localhost:${port}`);
     });

@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
-import { BadgeCheck, HeartOff, Loader2, MapPin, User } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-import { getMatches } from "../services/api";
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { User } from "lucide-react";
+import AuthContext from "../context/AuthContext";
+import { getMatches } from "../services/api.js";
 
 function MatchesPage() {
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,73 +14,74 @@ function MatchesPage() {
     if (!user?._id) return;
 
     getMatches(user._id)
-      .then((data) => setMatches(data.matches || []))
-      .catch(() => setMatches([]))
-      .finally(() => setLoading(false));
-  }, [user?._id]);
+      .then((data) => {
+        setMatches(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [user]);
 
   if (loading) {
     return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center gap-3">
-        <Loader2 size={32} className="animate-spin text-teal" />
-        <p className="font-body text-charcoalMuted">Loading matches...</p>
+      <div className="mt-20 text-center text-charcoalMuted">
+        Loading matches...
       </div>
     );
   }
 
   if (matches.length === 0) {
     return (
-      <div className="flex min-h-[300px] flex-col items-center justify-center text-center">
-        <HeartOff size={48} className="text-charcoalMuted" />
-        <p className="mt-4 font-body text-charcoalMuted">
-          No matches yet. Keep swiping!
+      <div className="mt-20 text-center">
+        <p className="font-heading text-xl text-charcoal">No matches yet</p>
+        <p className="mt-2 font-body text-charcoalMuted">
+          Keep swiping to find your match!
         </p>
       </div>
     );
   }
 
   return (
-    <div>
-      <h1 className="font-heading text-2xl font-bold text-charcoal">
+    <div className="p-4">
+      <h1 className="mb-4 font-heading text-2xl font-bold text-charcoal">
         Your Matches
+        <span className="ml-2 rounded-full bg-orangeLight px-2 py-1 text-sm text-orange">
+          {matches.length}
+        </span>
       </h1>
-      <p className="mt-1 font-body text-sm text-charcoalMuted">
-        {matches.length} connection{matches.length !== 1 ? "s" : ""}
-      </p>
-
-      <div className="mt-6 space-y-3">
-        {matches.map(({ matchId, profile }) => (
-          <div
-            key={matchId}
-            className="flex items-center gap-4 rounded-2xl border border-[#e9ddd1] bg-white p-4"
-          >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-orangeLight">
-              <User size={28} className="text-teal" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="truncate font-heading text-lg font-bold text-charcoal">
-                  {profile.name}
-                </h2>
-                {profile.verified && (
-                  <BadgeCheck size={16} className="shrink-0 text-teal" />
-                )}
-              </div>
-              <p className="font-body text-sm text-charcoalMuted">
-                {profile.category}
-              </p>
-              {profile.location?.area && (
-                <div className="mt-1 flex items-center gap-1 text-charcoalMuted">
-                  <MapPin size={14} />
-                  <span className="font-body text-xs">
-                    {profile.location.area}
-                  </span>
-                </div>
-              )}
-            </div>
+      {matches.map((match) => (
+        <div
+          key={match.matchId || match._id}
+          className="mb-3 flex items-center gap-3 rounded-xl border border-orangeLight bg-warmWhite p-3"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orangeLight">
+            <User className="h-6 w-6 text-teal" />
           </div>
-        ))}
-      </div>
+          <div className="flex-1">
+            <p className="font-heading font-bold text-charcoal">{match.name}</p>
+            <span className="rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
+              {match.category}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              navigate(`/dashboard/${user.role}/messages/${match.matchId}`, {
+                state: {
+                  otherPerson: {
+                    _id: match._id,
+                    name: match.name,
+                    category: match.category,
+                    role: match.role,
+                  },
+                },
+              })
+            }
+            className="rounded-xl border border-teal px-3 py-1 font-body text-sm text-teal"
+          >
+            Message
+          </button>
+        </div>
+      ))}
     </div>
   );
 }

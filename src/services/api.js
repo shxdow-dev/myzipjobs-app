@@ -16,12 +16,41 @@ export const registerUser = (data) =>
 export const getRecommendations = (userId) =>
   fetch(`${BASE}/recommend/${userId}`).then((r) => r.json());
 
-export const recordSwipe = (swipedBy, swipedOn, action) =>
-  fetch(`${BASE}/swipe`, {
+export const recordSwipe = async (swipedBy, swipedOn, action) => {
+  const res = await fetch(`${BASE}/swipe`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ swipedBy, swipedOn, action }),
-  }).then((r) => r.json());
+  });
+  return res.json();
+};
 
-export const getMatches = (userId) =>
-  fetch(`${BASE}/matches/${userId}`).then((r) => r.json());
+export const getMatches = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/matches/${userId}`
+  );
+  return res.json();
+};
+
+export const getMessages = async (matchId, userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/messages/${matchId}?userId=${userId}`
+  );
+  return res.json();
+};
+
+export const sendMessage = async (matchId, senderId, receiverId, text) => {
+  const res = await fetch(`${import.meta.env.VITE_API_URL}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ matchId, senderId, receiverId, text }),
+  });
+  return res.json();
+};
+
+export const getConversations = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/messages/conversations/${userId}`
+  );
+  return res.json();
+};
