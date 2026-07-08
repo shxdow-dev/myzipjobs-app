@@ -17,7 +17,6 @@ function WorkerDashboard() {
 
       <div className="mt-6">
         <SwipeStack
-          userId={user._id}
           userRole={user.role}
           onMatch={setMatchData}
         />

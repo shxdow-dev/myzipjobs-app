@@ -15,6 +15,10 @@ router.post("/register", async (req, res, next) => {
       experience,
       about,
       requirement,
+      time,
+      wages,
+      gender,
+      membersRequired,
     } = req.body;
 
     const existingUser = await User.findOne({ phone: String(phone).trim() });
@@ -32,6 +36,10 @@ router.post("/register", async (req, res, next) => {
       experience,
       about,
       requirement,
+      time,
+      wages,
+      gender,
+      membersRequired,
     });
 
     return res.status(201).json(user);

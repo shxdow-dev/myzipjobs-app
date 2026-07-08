@@ -17,6 +17,46 @@ const CATEGORY_OPTIONS = [
   "Other",
 ];
 
+const TIME_OPTIONS = [
+  "Full Time",
+  "Part Time - Mornings",
+  "Part Time - Evenings",
+  "Weekends Only",
+  "Flexible",
+];
+
+const WORKER_GENDER_OPTIONS = ["Male", "Female", "Prefer not to say"];
+
+const EMPLOYER_GENDER_OPTIONS = ["Male", "Female", "No Preference"];
+
+function formatSalary(value) {
+  return `₹${value.toLocaleString("en-IN")}`;
+}
+
+function PillSelect({ label, options, value, onChange }) {
+  return (
+    <div>
+      <p className="mb-2 font-body text-sm text-charcoalMuted">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => onChange(option)}
+            className={`rounded-full border px-3 py-2 text-sm transition-colors ${
+              value === option
+                ? "border-teal bg-tealLight text-charcoal"
+                : "border-charcoalMuted bg-warmWhite text-charcoalMuted"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Register() {
   const navigate = useNavigate();
   const { setUser } = useAuth();
@@ -31,11 +71,14 @@ function Register() {
   const [fullName, setFullName] = useState("");
   const [category, setCategory] = useState("");
   const [location, setLocation] = useState("");
+  const [time, setTime] = useState("");
+  const [salaryRange, setSalaryRange] = useState([5000, 20000]);
+  const [gender, setGender] = useState("");
+  const [membersRequired, setMembersRequired] = useState("");
   const [registerError, setRegisterError] = useState("");
   const [registering, setRegistering] = useState(false);
   const otpRefs = useRef([]);
 
-  const roleLabel = role === "worker" ? "work" : "help with";
   const successCta = role === "worker" ? "Explore Jobs" : "Find Workers";
   const successMessage =
     role === "worker"
@@ -165,10 +208,13 @@ function Register() {
         name: fullName.trim(),
         category,
         location: { area: location.trim(), city: "Hyderabad" },
-        requirement:
-          role === "employer" && category
-            ? `Looking for a ${category.toLowerCase()}`
-            : "",
+        time,
+        wages: { min: salaryRange[0], max: salaryRange[1] },
+        gender,
+        ...(role === "employer" && {
+          membersRequired,
+          requirement: category ? `Looking for a ${category.toLowerCase()}` : "",
+        }),
       });
 
       setUser(user);
@@ -324,7 +370,7 @@ function Register() {
               <User size={34} className="text-teal" />
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-5">
               <input
                 type="text"
                 value={fullName}
@@ -333,27 +379,12 @@ function Register() {
                 className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
               />
 
-              <div>
-                <p className="mb-2 font-body text-sm text-charcoalMuted">
-                  What kind of {roleLabel} do you do?
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORY_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setCategory(option)}
-                      className={`rounded-full border px-3 py-2 text-sm transition-colors ${
-                        category === option
-                          ? "border-teal bg-tealLight text-charcoal"
-                          : "border-charcoalMuted bg-warmWhite text-charcoalMuted"
-                      }`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <PillSelect
+                label={role === "worker" ? "Category / Role" : "Help needed"}
+                options={CATEGORY_OPTIONS}
+                value={category}
+                onChange={setCategory}
+              />
 
               <input
                 type="text"
@@ -362,6 +393,109 @@ function Register() {
                 placeholder="Your area or neighbourhood, e.g. Banjara Hills"
                 className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
               />
+
+              <PillSelect
+                label={role === "worker" ? "Available time" : "Required time"}
+                options={TIME_OPTIONS}
+                value={time}
+                onChange={setTime}
+              />
+
+              <div>
+                <p className="mb-2 font-body text-sm text-charcoalMuted">
+                  {role === "worker"
+                    ? "Expected Salary Range"
+                    : "Budget Range"}
+                </p>
+                <p className="mb-4 text-center font-heading text-lg text-orange">
+                  {formatSalary(salaryRange[0])} — {formatSalary(salaryRange[1])}{" "}
+                  / month
+                </p>
+                <div className="relative h-6 w-full">
+                  <div className="absolute top-2 h-2 w-full rounded-full bg-orangeLight" />
+                  <div
+                    className="absolute top-2 h-2 rounded-full bg-orange"
+                    style={{
+                      left: `${((salaryRange[0] - 1000) / 79000) * 100}%`,
+                      right: `${100 - ((salaryRange[1] - 1000) / 79000) * 100}%`,
+                    }}
+                  />
+                  <input
+                    type="range"
+                    min={1000}
+                    max={80000}
+                    step={1000}
+                    value={salaryRange[0]}
+                    onChange={(e) => {
+                      const val = Math.min(
+                        Number(e.target.value),
+                        salaryRange[1] - 1000
+                      );
+                      setSalaryRange([val, salaryRange[1]]);
+                    }}
+                    className="pointer-events-none absolute w-full appearance-none bg-transparent"
+                    style={{ zIndex: salaryRange[0] > 70000 ? 5 : 3 }}
+                  />
+                  <input
+                    type="range"
+                    min={1000}
+                    max={80000}
+                    step={1000}
+                    value={salaryRange[1]}
+                    onChange={(e) => {
+                      const val = Math.max(
+                        Number(e.target.value),
+                        salaryRange[0] + 1000
+                      );
+                      setSalaryRange([salaryRange[0], val]);
+                    }}
+                    className="pointer-events-none absolute w-full appearance-none bg-transparent"
+                    style={{ zIndex: 4 }}
+                  />
+                </div>
+              </div>
+
+              <PillSelect
+                label={
+                  role === "worker"
+                    ? "Gender"
+                    : "Gender preference for worker"
+                }
+                options={
+                  role === "worker"
+                    ? WORKER_GENDER_OPTIONS
+                    : EMPLOYER_GENDER_OPTIONS
+                }
+                value={gender}
+                onChange={setGender}
+              />
+
+              {role === "employer" && (
+                <div>
+                  <label className="mb-1 block font-body text-sm text-charcoalMuted">
+                    How many workers do you need?
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={membersRequired}
+                      onChange={(e) => setMembersRequired(e.target.value)}
+                      className="h-[52px] w-full appearance-none rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal focus:border-teal focus:outline-none focus:ring-2 focus:ring-tealLight"
+                    >
+                      <option value="" disabled>
+                        Select number of workers
+                      </option>
+                      <option value="1">1 Person</option>
+                      <option value="2-3">2 - 3 People</option>
+                      <option value="4-5">4 - 5 People</option>
+                      <option value="5+">5+ People</option>
+                      <option value="10+">10+ People (team)</option>
+                    </select>
+                    <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-charcoalMuted">
+                      ▼
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button

@@ -1,10 +1,19 @@
-import { BadgeCheck, MapPin, Star, User } from "lucide-react";
+import {
+  BadgeCheck,
+  Clock,
+  IndianRupee,
+  MapPin,
+  Star,
+  User,
+  Users,
+} from "lucide-react";
 
 function ProfileCard({ profile, userRole }) {
   const isViewingWorker = userRole === "employer";
+  const isWorkerProfile = profile.role === "worker" || isViewingWorker;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-[#e9ddd1] bg-white p-6 shadow-sm">
+    <div className="flex h-full flex-col overflow-y-auto rounded-2xl border border-[#e9ddd1] bg-white p-6 shadow-sm">
       <div className="flex items-start gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-orangeLight">
           <User size={32} className="text-teal" />
@@ -18,9 +27,11 @@ function ProfileCard({ profile, userRole }) {
               <BadgeCheck size={20} className="shrink-0 text-teal" />
             )}
           </div>
-          <p className="mt-1 font-body text-sm text-charcoalMuted">
-            {profile.category}
-          </p>
+          {profile.category && (
+            <span className="mt-2 inline-block rounded-full bg-tealLight px-3 py-1 font-body text-xs font-medium text-teal">
+              {profile.category}
+            </span>
+          )}
         </div>
       </div>
 
@@ -34,7 +45,44 @@ function ProfileCard({ profile, userRole }) {
         </div>
       )}
 
-      {isViewingWorker && profile.rating > 0 && (
+      {profile.time && (
+        <div className="mt-3 flex items-center gap-2 text-charcoalMuted">
+          <Clock size={16} className="shrink-0 text-teal" />
+          <span className="font-body text-sm">
+            {isWorkerProfile ? "Available: " : "Required: "}
+            {profile.time}
+          </span>
+        </div>
+      )}
+
+      {profile.wages?.min != null && profile.wages?.max != null && (
+        <div className="mt-3 flex items-center gap-2 text-charcoalMuted">
+          <IndianRupee size={16} className="shrink-0 text-teal" />
+          <span className="font-body text-sm">
+            {isWorkerProfile ? "Expected: " : "Budget: "}
+            ₹{profile.wages.min.toLocaleString("en-IN")} — ₹
+            {profile.wages.max.toLocaleString("en-IN")}/mo
+          </span>
+        </div>
+      )}
+
+      {profile.gender && (
+        <p className="mt-3 font-body text-sm text-charcoalMuted">
+          {isWorkerProfile ? "Gender: " : "Gender preference: "}
+          {profile.gender}
+        </p>
+      )}
+
+      {!isWorkerProfile && profile.membersRequired && (
+        <div className="mt-3 flex items-center gap-2 text-charcoalMuted">
+          <Users size={16} className="shrink-0 text-teal" />
+          <span className="font-body text-sm">
+            {profile.membersRequired} needed
+          </span>
+        </div>
+      )}
+
+      {isWorkerProfile && profile.rating > 0 && (
         <div className="mt-3 flex items-center gap-1.5">
           <Star size={16} className="fill-orange text-orange" />
           <span className="font-body text-sm font-medium text-charcoal">
@@ -48,15 +96,9 @@ function ProfileCard({ profile, userRole }) {
         </div>
       )}
 
-      {profile.experience && isViewingWorker && (
+      {isWorkerProfile && profile.experience && (
         <p className="mt-2 font-body text-sm text-charcoalMuted">
           Experience: {profile.experience}
-        </p>
-      )}
-
-      {!isViewingWorker && profile.requirement && (
-        <p className="mt-3 font-body text-sm text-charcoal">
-          {profile.requirement}
         </p>
       )}
 
