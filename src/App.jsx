@@ -6,6 +6,8 @@ import Register from "./pages/Register";
 import WorkerDashboard from "./pages/WorkerDashboard";
 import EmployerDashboard from "./pages/EmployerDashboard";
 import MatchesPage from "./pages/MatchesPage";
+import ConversationsPage from "./pages/dashboard/ConversationsPage";
+import ChatPage from "./pages/dashboard/ChatPage";
 
 function LoginPlaceholder() {
   return (
@@ -33,14 +35,24 @@ function App() {
         <Route path="/dashboard/worker" element={<DashboardLayout role="worker" />}>
           <Route index element={<WorkerDashboard />} />
           <Route path="matches" element={<MatchesPage />} />
+          <Route path="messages" element={<ConversationsPage />} />
         </Route>
+        <Route
+          path="/dashboard/worker/messages/:matchId"
+          element={<ChatPage role="worker" />}
+        />
         <Route
           path="/dashboard/employer"
           element={<DashboardLayout role="employer" />}
         >
           <Route index element={<EmployerDashboard />} />
           <Route path="matches" element={<MatchesPage />} />
+          <Route path="messages" element={<ConversationsPage />} />
         </Route>
+        <Route
+          path="/dashboard/employer/messages/:matchId"
+          element={<ChatPage role="employer" />}
+        />
       </Routes>
     </div>
   );

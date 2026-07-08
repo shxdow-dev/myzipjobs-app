@@ -1,37 +1,30 @@
 import express from "express";
-import mongoose from "mongoose";
 import Match from "../models/Match.js";
 
 const router = express.Router();
 
-router.get("/:userId", async (req, res, next) => {
+router.get("/:userId", async (req, res) => {
   try {
-    const { userId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: "Invalid userId" });
-    }
+    const userId = req.params.userId;
 
     const matches = await Match.find({
       $or: [{ worker: userId }, { employer: userId }],
     })
       .populate("worker")
-      .populate("employer")
-      .sort({ createdAt: -1 });
+      .populate("employer");
 
     const profiles = matches.map((match) => {
-      const isWorker = String(match.worker?._id) === userId;
+      const isWorker = String(match.worker._id) === String(userId);
+      const otherProfile = isWorker ? match.employer : match.worker;
       return {
         matchId: match._id,
-        status: match.status,
-        createdAt: match.createdAt,
-        profile: isWorker ? match.employer : match.worker,
+        ...otherProfile.toObject(),
       };
     });
 
-    return res.json({ matches: profiles });
-  } catch (error) {
-    return next(error);
+    res.json(profiles);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

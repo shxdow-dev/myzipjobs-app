@@ -1,97 +1,98 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { ArrowLeft, Send, User } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
-import { getMatches, getMessages, sendMessage } from "../../services/api";
-import socket from "../../services/socket";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
+import AuthContext from "../../context/AuthContext";
+import {
+  getConversations,
+  getMessages,
+  sendMessage,
+} from "../../services/api.js";
+import socket from "../../services/socket.js";
 
-function formatBubbleTime(dateStr) {
-  return new Date(dateStr).toLocaleTimeString(undefined, {
+function formatTime(dateString) {
+  return new Date(dateString).toLocaleTimeString("en-IN", {
     hour: "numeric",
     minute: "2-digit",
   });
 }
 
-function getDateKey(dateStr) {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-}
+function formatDateLabel(dateString) {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
 
-function formatDateSeparator(dateStr) {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-
-  if (date.toDateString() === now.toDateString()) return "Today";
+  if (date.toDateString() === today.toDateString()) return "Today";
   if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return date.toLocaleDateString(undefined, {
-    month: "short",
+
+  return date.toLocaleDateString("en-IN", {
     day: "numeric",
+    month: "short",
     year: "numeric",
   });
 }
 
+function isSameDay(a, b) {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
 function ChatSkeleton() {
   return (
-    <div className="space-y-4 px-4 py-6">
-      <div className="flex justify-start">
-        <div className="h-12 w-48 animate-pulse rounded-2xl rounded-bl-sm bg-[#e9ddd1]" />
-      </div>
-      <div className="flex justify-end">
-        <div className="h-12 w-56 animate-pulse rounded-2xl rounded-br-sm bg-[#e9ddd1]" />
-      </div>
-      <div className="flex justify-start">
-        <div className="h-10 w-40 animate-pulse rounded-2xl rounded-bl-sm bg-[#e9ddd1]" />
-      </div>
-      <div className="flex justify-end">
-        <div className="h-14 w-52 animate-pulse rounded-2xl rounded-br-sm bg-[#e9ddd1]" />
-      </div>
+    <div className="space-y-4 p-4">
+      <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-gray-200" />
+      <div className="ml-auto h-10 w-1/2 animate-pulse rounded-2xl bg-gray-200" />
+      <div className="h-10 w-3/5 animate-pulse rounded-2xl bg-gray-200" />
+      <div className="ml-auto h-10 w-2/5 animate-pulse rounded-2xl bg-gray-200" />
     </div>
   );
 }
 
 function ChatPage({ role }) {
   const { matchId } = useParams();
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState([]);
-  const [otherPerson, setOtherPerson] = useState(null);
+  const [otherPerson, setOtherPerson] = useState(
+    location.state?.otherPerson || null
+  );
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
-  const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      navigate("/register");
-      return;
-    }
-    if (user.role !== role) {
-      navigate(`/dashboard/${user.role}/messages/${matchId}`);
-    }
-  }, [user, role, matchId, navigate]);
+  const scrollToBottom = () => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (!user?._id || !matchId) return;
 
-    Promise.all([getMessages(matchId, user._id), getMatches(user._id)])
-      .then(([msgs, matchData]) => {
-        setMessages(Array.isArray(msgs) ? msgs : []);
-        const match = (matchData.matches || []).find(
-          (m) => String(m.matchId) === String(matchId)
+    getMessages(matchId, user._id)
+      .then((data) => {
+        setMessages(Array.isArray(data) ? data : []);
+        setLoading(false);
+        setTimeout(scrollToBottom, 100);
+      })
+      .catch(() => setLoading(false));
+
+    if (!location.state?.otherPerson) {
+      getConversations(user._id).then((data) => {
+        const conversation = (Array.isArray(data) ? data : []).find(
+          (item) => String(item.matchId) === String(matchId)
         );
-        setOtherPerson(match?.profile || null);
-      })
-      .catch(() => {
-        setMessages([]);
-      })
-      .finally(() => setLoading(false));
-  }, [matchId, user?._id]);
+        if (conversation?.otherPerson) {
+          setOtherPerson(conversation.otherPerson);
+        }
+      });
+    }
+  }, [user?._id, matchId, location.state?.otherPerson]);
 
   useEffect(() => {
     if (!matchId) return;
@@ -100,9 +101,22 @@ function ChatPage({ role }) {
 
     const handleNewMessage = (msg) => {
       setMessages((prev) => {
-        if (prev.some((m) => String(m._id) === String(msg._id))) return prev;
-        return [...prev, msg];
+        const exists = prev.some(
+          (item) => String(item._id) === String(msg._id)
+        );
+        if (exists) return prev;
+        const withoutTemp = prev.filter(
+          (item) =>
+            !(
+              item._temp &&
+              item.text === msg.text &&
+              String(item.senderId?._id || item.senderId) ===
+                String(msg.senderId?._id || msg.senderId)
+            )
+        );
+        return [...withoutTemp, msg];
       });
+      setTimeout(scrollToBottom, 50);
     };
 
     socket.on("newMessage", handleNewMessage);
@@ -115,91 +129,79 @@ function ChatPage({ role }) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  const handleTextChange = (e) => {
-    setText(e.target.value);
-    const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-    }
-  };
+  }, [messages.length]);
 
   const handleSend = async () => {
     const trimmed = text.trim();
-    if (!trimmed || !user?._id || !otherPerson?._id) return;
+    if (!trimmed || !user?._id || !otherPerson?._id || sending) return;
 
     const tempId = `temp-${Date.now()}`;
     const optimistic = {
       _id: tempId,
+      _temp: true,
       matchId,
       senderId: { _id: user._id, name: user.name },
       receiverId: otherPerson._id,
       text: trimmed,
-      createdAt: new Date().toISOString(),
       read: false,
+      createdAt: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, optimistic]);
     setText("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
+    setSending(true);
+    inputRef.current?.focus();
+    scrollToBottom();
 
     try {
-      const saved = await sendMessage(matchId, user._id, otherPerson._id, trimmed);
+      const saved = await sendMessage(
+        matchId,
+        user._id,
+        otherPerson._id,
+        trimmed
+      );
       setMessages((prev) =>
-        prev.map((m) => (m._id === tempId ? saved : m))
+        prev.map((item) => (item._id === tempId ? saved : item))
       );
     } catch {
-      setMessages((prev) => prev.filter((m) => m._id !== tempId));
+      setMessages((prev) => prev.filter((item) => item._id !== tempId));
+    } finally {
+      setSending(false);
     }
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
+  const handleKeyDown = (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
       handleSend();
     }
   };
 
-  if (!user) return null;
-
-  const groupedMessages = [];
-  let lastDateKey = null;
-
-  messages.forEach((msg) => {
-    const dateKey = getDateKey(msg.createdAt);
-    if (dateKey !== lastDateKey) {
-      groupedMessages.push({ type: "separator", date: msg.createdAt, key: dateKey });
-      lastDateKey = dateKey;
-    }
-    groupedMessages.push({ type: "message", data: msg, key: msg._id });
-  });
+  const getSenderId = (message) =>
+    String(message.senderId?._id || message.senderId);
 
   return (
     <div className="flex h-screen flex-col bg-warmWhite">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[#e9ddd1] bg-warmWhite px-3 py-3">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[#e9ddd1] bg-warmWhite px-4 py-3">
         <button
           type="button"
+          aria-label="Back to conversations"
           onClick={() => navigate(`/dashboard/${role}/messages`)}
           className="rounded-lg p-2 text-charcoal transition-colors hover:bg-orangeLight"
-          aria-label="Back to conversations"
         >
           <ArrowLeft size={22} />
         </button>
 
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orangeLight">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orangeLight">
           <User size={18} className="text-teal" />
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate font-heading text-base font-bold text-charcoal">
+          <p className="truncate font-heading font-bold text-charcoal">
             {otherPerson?.name || "Chat"}
           </p>
           {otherPerson?.category && (
-            <span className="inline-block rounded-full bg-tealLight px-2 py-0.5 font-body text-xs text-teal">
+            <span className="rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
               {otherPerson.category}
             </span>
           )}
@@ -210,75 +212,74 @@ function ChatPage({ role }) {
         {loading ? (
           <ChatSkeleton />
         ) : (
-          <div className="space-y-3 px-4 py-4">
-            {groupedMessages.map((item) => {
-              if (item.type === "separator") {
-                return (
-                  <div
-                    key={`sep-${item.key}`}
-                    className="flex items-center gap-3 py-2"
-                  >
-                    <div className="h-px flex-1 bg-[#e9ddd1]" />
-                    <span className="font-body text-xs text-charcoalMuted">
-                      {formatDateSeparator(item.date)}
-                    </span>
-                    <div className="h-px flex-1 bg-[#e9ddd1]" />
-                  </div>
-                );
-              }
-
-              const msg = item.data;
-              const isSent =
-                String(msg.senderId?._id || msg.senderId) === String(user._id);
+          <div className="space-y-3 p-4">
+            {messages.map((message, index) => {
+              const isSent = getSenderId(message) === String(user._id);
+              const showDateSeparator =
+                index === 0 ||
+                !isSameDay(messages[index - 1].createdAt, message.createdAt);
 
               return (
-                <div
-                  key={item.key}
-                  className={`flex flex-col ${isSent ? "items-end" : "items-start"}`}
-                >
+                <div key={message._id}>
+                  {showDateSeparator && (
+                    <div className="my-4 flex items-center gap-3">
+                      <div className="h-px flex-1 bg-[#e9ddd1]" />
+                      <span className="text-xs text-charcoalMuted">
+                        {formatDateLabel(message.createdAt)}
+                      </span>
+                      <div className="h-px flex-1 bg-[#e9ddd1]" />
+                    </div>
+                  )}
+
                   <div
-                    className={`max-w-[75%] px-4 py-2.5 ${
-                      isSent
-                        ? "rounded-2xl rounded-br-sm bg-orange text-white"
-                        : "rounded-2xl rounded-bl-sm border border-[#e9ddd1] bg-white text-charcoal"
-                    }`}
+                    className={`flex ${isSent ? "justify-end" : "justify-start"}`}
                   >
-                    <p className="whitespace-pre-wrap break-words font-body text-sm">
-                      {msg.text}
-                    </p>
+                    <div className="max-w-[75%]">
+                      <div
+                        className={`px-4 py-2.5 ${
+                          isSent
+                            ? "rounded-2xl rounded-br-sm bg-orange text-white"
+                            : "rounded-2xl rounded-bl-sm border border-[#e9ddd1] bg-white text-charcoal"
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap break-words font-body text-sm">
+                          {message.text}
+                        </p>
+                      </div>
+                      <p
+                        className={`mt-1 text-xs ${
+                          isSent ? "text-right text-orange/70" : "text-charcoalMuted"
+                        }`}
+                      >
+                        {formatTime(message.createdAt)}
+                      </p>
+                    </div>
                   </div>
-                  <span
-                    className={`mt-1 px-1 font-body text-xs ${
-                      isSent ? "text-orange/70" : "text-charcoalMuted"
-                    }`}
-                  >
-                    {formatBubbleTime(msg.createdAt)}
-                  </span>
                 </div>
               );
             })}
-            <div ref={messagesEndRef} />
+            <div ref={bottomRef} />
           </div>
         )}
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-[#e9ddd1] bg-warmWhite p-3">
-        <div className="mx-auto flex max-w-6xl items-end gap-2">
+        <div className="mx-auto flex max-w-2xl items-end gap-2">
           <textarea
-            ref={textareaRef}
+            ref={inputRef}
             value={text}
-            onChange={handleTextChange}
+            onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
-            className="max-h-[120px] min-h-[44px] flex-1 resize-none rounded-xl border border-charcoalMuted px-4 py-2.5 font-body text-sm text-charcoal outline-none transition-colors focus:border-teal"
+            className="max-h-[120px] min-h-[44px] flex-1 resize-none rounded-xl border border-charcoalMuted bg-warmWhite px-4 py-2.5 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-tealLight"
           />
           <button
             type="button"
-            onClick={handleSend}
-            disabled={!text.trim()}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange text-white transition-opacity disabled:opacity-40"
             aria-label="Send message"
+            disabled={!text.trim() || sending}
+            onClick={handleSend}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange text-white transition-all hover:bg-orangeDark disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send size={20} />
           </button>

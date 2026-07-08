@@ -1,64 +1,127 @@
 import { useCallback, useEffect, useState } from "react";
-import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Loader2, RotateCcw, X } from "lucide-react";
-import { getRecommendations, recordSwipe } from "../../services/api";
+import { motion } from "framer-motion";
+import { useSwipeable } from "react-swipeable";
+import { Heart, Loader2, RotateCcw, X } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { getRecommendations, recordSwipe } from "../../services/api.js";
 import Button from "../common/Button";
+import MatchOverlay from "./MatchOverlay";
 import ProfileCard from "./ProfileCard";
 
-function SwipeStack({ userId, userRole, onMatch }) {
+function SwipeCard({ profile, userRole, onPass, onConnect }) {
+  return (
+    <div className="relative h-full">
+      <ProfileCard profile={profile} userRole={userRole} />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-0" />
+      <div className="sr-only">
+        <button type="button" onClick={onPass}>Pass</button>
+        <button type="button" onClick={onConnect}>Connect</button>
+      </div>
+    </div>
+  );
+}
+
+function SwipeStack({ userRole, onMatch }) {
+  const { user: currentUser } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [swiping, setSwiping] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [showMatchOverlay, setShowMatchOverlay] = useState(false);
+  const [matchedProfile, setMatchedProfile] = useState(null);
 
   const fetchProfiles = useCallback(async () => {
+    if (!currentUser?._id) return;
+
     setLoading(true);
     setError(false);
     try {
-      const data = await getRecommendations(userId);
+      const data = await getRecommendations(currentUser._id);
       setProfiles(data.profiles || []);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [currentUser?._id]);
 
   useEffect(() => {
     fetchProfiles();
   }, [fetchProfiles]);
 
-  const handleSwipe = async (action) => {
-    if (swiping || profiles.length === 0) return;
+  const handlePass = async (profile) => {
+    if (swiping || !currentUser?._id || !profile) return;
 
-    const current = profiles[0];
     setSwiping(true);
+    setDragX(-400);
 
     try {
-      const response = await recordSwipe(userId, current._id, action);
-      const remaining = profiles.slice(1);
-      setProfiles(remaining);
-
-      if (response.matched) {
-        onMatch?.({
-          matchedProfile: response.matchedProfile,
-          matchId: response.matchId,
-        });
-      }
-
-      if (remaining.length === 0) {
-        const data = await getRecommendations(userId);
-        if (data.profiles?.length > 0) {
-          setProfiles(data.profiles);
-        }
-      }
+      await recordSwipe(currentUser._id, profile._id, "pass");
+      setProfiles((prev) => prev.filter((p) => p._id !== profile._id));
     } catch {
       setError(true);
+      setDragX(0);
     } finally {
       setSwiping(false);
+      setDragX(0);
     }
   };
 
+  const handleConnect = async (profile) => {
+    if (swiping || !currentUser?._id || !profile) return;
+
+    setSwiping(true);
+    setDragX(400);
+
+    try {
+      const result = await recordSwipe(
+        currentUser._id,
+        profile._id,
+        "connect"
+      );
+      setProfiles((prev) => prev.filter((p) => p._id !== profile._id));
+
+      if (result.matched) {
+        setMatchedProfile(result.matchedProfile);
+        setShowMatchOverlay(true);
+        onMatch?.({
+          matchedProfile: result.matchedProfile,
+          matchId: result.matchId,
+        });
+      }
+    } catch {
+      setError(true);
+      setDragX(0);
+    } finally {
+      setSwiping(false);
+      setDragX(0);
+    }
+  };
+
+  const handlers = useSwipeable({
+    onSwiping: (e) => {
+      if (swiping) return;
+      setDragX(e.deltaX);
+    },
+    onSwipedLeft: () => {
+      setDragX(0);
+      if (profiles[0]) {
+        handlePass(profiles[0]);
+      }
+    },
+    onSwipedRight: () => {
+      setDragX(0);
+      if (profiles[0]) {
+        handleConnect(profiles[0]);
+      }
+    },
+    preventScrollOnSwipe: true,
+    trackMouse: true,
+    delta: 80,
+  });
+
+  if (!currentUser) return null;
 
   if (loading && profiles.length === 0) {
     return (
@@ -96,19 +159,46 @@ function SwipeStack({ userId, userRole, onMatch }) {
     );
   }
 
+  const topProfile = profiles[0];
+  const nextProfile = profiles[1];
+
   return (
     <div className="mx-auto w-full max-w-md">
-      <div className="relative h-[480px]">
-        {profiles.slice(0, 2).map((profile, index) => (
+      <div className="relative h-[540px]">
+        {nextProfile && (
+          <div
+            className="absolute inset-0 scale-[0.96]"
+            style={{ zIndex: 5 }}
+          >
+            <ProfileCard profile={nextProfile} userRole={userRole} />
+          </div>
+        )}
+
+        <motion.div
+          {...handlers}
+          className="absolute inset-0"
+          style={{ zIndex: 10, touchAction: "none" }}
+          animate={{ rotate: dragX * 0.05, x: dragX }}
+          transition={{ type: "spring", stiffness: 300 }}
+        >
+          {dragX > 30 && (
+            <div className="absolute left-4 top-4 z-10 rounded-full bg-green-500 px-3 py-1 font-heading text-lg text-white">
+              ❤️ Connect!
+            </div>
+          )}
+          {dragX < -30 && (
+            <div className="absolute right-4 top-4 z-10 rounded-full bg-red-500 px-3 py-1 font-heading text-lg text-white">
+              ✕ Pass
+            </div>
+          )}
+
           <SwipeCard
-            key={profile._id}
-            profile={profile}
+            profile={topProfile}
             userRole={userRole}
-            isTop={index === 0}
-            onSwipe={handleSwipe}
-            disabled={swiping}
+            onPass={() => handlePass(topProfile)}
+            onConnect={() => handleConnect(topProfile)}
           />
-        ))}
+        </motion.div>
       </div>
 
       <div className="mt-6 flex items-center justify-center gap-6">
@@ -116,7 +206,7 @@ function SwipeStack({ userId, userRole, onMatch }) {
           type="button"
           aria-label="Pass"
           disabled={swiping}
-          onClick={() => handleSwipe("pass")}
+          onClick={() => handlePass(topProfile)}
           className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-charcoalMuted bg-white text-charcoalMuted transition-all hover:border-alert hover:text-alert disabled:opacity-50"
         >
           <X size={28} />
@@ -125,63 +215,23 @@ function SwipeStack({ userId, userRole, onMatch }) {
           type="button"
           aria-label="Connect"
           disabled={swiping}
-          onClick={() => handleSwipe("connect")}
+          onClick={() => handleConnect(topProfile)}
           className="flex h-16 w-16 items-center justify-center rounded-full bg-orange text-white shadow-md transition-all hover:bg-orangeDark active:scale-95 disabled:opacity-50"
         >
-          <span className="font-heading text-lg font-bold">✓</span>
+          <Heart size={28} className="fill-white" />
         </button>
       </div>
-    </div>
-  );
-}
 
-function SwipeCard({ profile, userRole, isTop, onSwipe, disabled }) {
-  const x = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-12, 12]);
-  const passOpacity = useTransform(x, [-120, -40], [1, 0]);
-  const connectOpacity = useTransform(x, [40, 120], [0, 1]);
-
-  const handleDragEnd = (_event, info) => {
-    if (disabled) return;
-    if (info.offset.x > 100) {
-      onSwipe("connect");
-    } else if (info.offset.x < -100) {
-      onSwipe("pass");
-    }
-  };
-
-  return (
-    <motion.div
-      className="absolute inset-0"
-      style={{
-        x: isTop ? x : 0,
-        rotate: isTop ? rotate : 0,
-        scale: isTop ? 1 : 0.96,
-        zIndex: isTop ? 10 : 5,
-      }}
-      drag={isTop && !disabled ? "x" : false}
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.9}
-      onDragEnd={isTop ? handleDragEnd : undefined}
-    >
-      {isTop && (
-        <>
-          <motion.div
-            className="pointer-events-none absolute left-4 top-4 z-20 rounded-lg border-2 border-alert px-3 py-1 font-heading text-lg font-bold text-alert"
-            style={{ opacity: passOpacity }}
-          >
-            PASS
-          </motion.div>
-          <motion.div
-            className="pointer-events-none absolute right-4 top-4 z-20 rounded-lg border-2 border-success px-3 py-1 font-heading text-lg font-bold text-success"
-            style={{ opacity: connectOpacity }}
-          >
-            CONNECT
-          </motion.div>
-        </>
+      {showMatchOverlay && matchedProfile && (
+        <MatchOverlay
+          matchData={{ matchedProfile }}
+          onClose={() => {
+            setShowMatchOverlay(false);
+            setMatchedProfile(null);
+          }}
+        />
       )}
-      <ProfileCard profile={profile} userRole={userRole} />
-    </motion.div>
+    </div>
   );
 }
 
