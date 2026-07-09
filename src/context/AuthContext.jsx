@@ -10,6 +10,12 @@ function toStoredUser(user) {
     role: user.role,
     category: user.category,
     location: user.location,
+    wages: user.wages,
+    time: user.time,
+    gender: user.gender,
+    languages: user.languages || [],
+    about: user.about || "",
+    membersRequired: user.membersRequired || "",
   };
 }
 

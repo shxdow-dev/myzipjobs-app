@@ -72,31 +72,50 @@ router.get("/:userId", async (req, res, next) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    const oppositeRole = user.role === "worker" ? "employer" : "worker";
     const swiped = await Swipe.find({ swipedBy: user._id }).select("swipedOn");
     const swipedIds = swiped.map((s) => s.swipedOn);
 
     const cityPattern = user.location?.city
-      ? new RegExp(user.location.city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
-      : /^$/;
+      ? new RegExp(
+          user.location.city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i"
+        )
+      : null;
 
-    const candidates = await User.find({
-      role: user.role === "worker" ? "employer" : "worker",
+    const baseQuery = {
+      role: oppositeRole,
       _id: { $nin: swipedIds },
-      "location.city": { $regex: cityPattern },
-    });
+    };
+
+    let candidates = [];
+    let expanded = false;
+
+    if (cityPattern) {
+      candidates = await User.find({
+        ...baseQuery,
+        "location.city": { $regex: cityPattern },
+      });
+    }
+
+    if (candidates.length === 0) {
+      const allCandidates = await User.find(baseQuery);
+      if (allCandidates.length > 0) {
+        candidates = allCandidates;
+        expanded = true;
+      }
+    }
 
     const scored = candidates
       .map((profile) => ({ profile, score: scoreProfile(profile, user) }))
       .sort((a, b) => b.score - a.score)
       .map((item) => item.profile);
 
-    const profiles = scored.slice(0, 20);
-
-    if (profiles.length === 0) {
-      return res.json({ message: "No profiles found nearby", profiles: [] });
-    }
-
-    return res.json({ profiles });
+    return res.json({
+      profiles: scored.slice(0, 20),
+      expanded,
+      total: scored.length,
+    });
   } catch (error) {
     return next(error);
   }

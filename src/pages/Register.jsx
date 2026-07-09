@@ -26,7 +26,6 @@ const TIME_OPTIONS = [
 ];
 
 const WORKER_GENDER_OPTIONS = ["Male", "Female", "Prefer not to say"];
-
 const EMPLOYER_GENDER_OPTIONS = ["Male", "Female", "No Preference"];
 
 function formatSalary(value) {
@@ -91,23 +90,16 @@ function Register() {
   }, [role]);
 
   useEffect(() => {
-    if (step !== 2) {
-      return;
-    }
-
+    if (step !== 2) return;
     setResendCountdown(30);
     setResendMessage("");
   }, [step]);
 
   useEffect(() => {
-    if (step !== 2 || resendCountdown <= 0) {
-      return;
-    }
-
+    if (step !== 2 || resendCountdown <= 0) return;
     const timer = window.setTimeout(() => {
       setResendCountdown((prev) => prev - 1);
     }, 1000);
-
     return () => window.clearTimeout(timer);
   }, [step, resendCountdown]);
 
@@ -132,25 +124,19 @@ function Register() {
       navigate("/");
       return;
     }
-
     if (step === 2) {
       setOtp(["", "", "", "", "", ""]);
       setOtpError("");
     }
-
     setStep((prev) => Math.max(1, prev - 1));
   };
 
   const handleOtpChange = (index, value) => {
-    if (!/^\d?$/.test(value)) {
-      return;
-    }
-
+    if (!/^\d?$/.test(value)) return;
     const nextOtp = [...otp];
     nextOtp[index] = value;
     setOtp(nextOtp);
     setOtpError("");
-
     if (value && index < 5) {
       otpRefs.current[index + 1]?.focus();
     }
@@ -164,13 +150,9 @@ function Register() {
 
   const handleOtpPaste = (event) => {
     const pasted = event.clipboardData.getData("text").replace(/\D/g, "");
-    if (pasted.length !== 6) {
-      return;
-    }
-
+    if (pasted.length !== 6) return;
     event.preventDefault();
-    const nextOtp = pasted.split("").slice(0, 6);
-    setOtp(nextOtp);
+    setOtp(pasted.split("").slice(0, 6));
     setOtpError("");
     otpRefs.current[5]?.focus();
   };
@@ -181,15 +163,11 @@ function Register() {
       setOtp(["", "", "", "", "", ""]);
       return;
     }
-
     setStep(3);
   };
 
   const resendOtp = () => {
-    if (resendCountdown > 0) {
-      return;
-    }
-
+    if (resendCountdown > 0) return;
     setOtp(["", "", "", "", "", ""]);
     setOtpError("");
     setResendCountdown(30);
@@ -200,7 +178,6 @@ function Register() {
   const completeProfile = async () => {
     setRegisterError("");
     setRegistering(true);
-
     try {
       const user = await registerUser({
         phone: `+91${phone}`,
@@ -216,7 +193,6 @@ function Register() {
           requirement: category ? `Looking for a ${category.toLowerCase()}` : "",
         }),
       });
-
       setUser(user);
       setStep(4);
     } catch (error) {
@@ -280,7 +256,6 @@ function Register() {
             <p className="mt-2 font-body text-charcoalMuted">
               We&apos;ll send you a one-time password to verify
             </p>
-
             <div className="mt-6 flex w-full max-w-[360px] items-center overflow-hidden rounded-xl border border-charcoalMuted bg-warmWhite">
               <div className="h-[52px] min-w-[72px] border-l-4 border-teal px-3 font-body leading-[52px] text-charcoal">
                 +91
@@ -294,7 +269,6 @@ function Register() {
                 className="h-[52px] w-full rounded-r-xl border-0 bg-transparent px-3 font-body text-charcoal outline-none focus:ring-2 focus:ring-teal"
               />
             </div>
-
             <Button
               className="mt-6 w-full max-w-[360px] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={phone.length !== 10}
@@ -313,11 +287,11 @@ function Register() {
             <h1 className="font-heading text-3xl font-bold text-charcoal">
               Enter the OTP
             </h1>
-            <p className="mt-2 font-body text-charcoalMuted">
-              Sent to +91 {phone}
-            </p>
-
-            <div className="mt-6 flex flex-wrap gap-2 sm:gap-3" onPaste={handleOtpPaste}>
+            <p className="mt-2 font-body text-charcoalMuted">Sent to +91 {phone}</p>
+            <div
+              className="mt-6 flex flex-wrap gap-2 sm:gap-3"
+              onPaste={handleOtpPaste}
+            >
               {otp.map((digit, index) => (
                 <input
                   key={index}
@@ -328,15 +302,15 @@ function Register() {
                   inputMode="numeric"
                   maxLength={1}
                   value={digit}
-                  onChange={(event) => handleOtpChange(index, event.target.value)}
+                  onChange={(event) =>
+                    handleOtpChange(index, event.target.value)
+                  }
                   onKeyDown={(event) => handleOtpKeyDown(index, event)}
                   className="h-14 w-[52px] rounded-xl border border-charcoalMuted text-center font-heading text-2xl font-bold text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
                 />
               ))}
             </div>
-
             {otpError && <p className="mt-3 text-sm text-alert">{otpError}</p>}
-
             <Button
               className="mt-6 w-full max-w-[360px] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={otpValue.length !== 6}
@@ -344,7 +318,6 @@ function Register() {
             >
               Verify OTP
             </Button>
-
             <button
               type="button"
               className="mt-4 font-body text-sm text-teal disabled:text-charcoalMuted"
@@ -369,7 +342,6 @@ function Register() {
             <div className="mt-6 flex h-20 w-20 items-center justify-center rounded-full bg-orangeLight">
               <User size={34} className="text-teal" />
             </div>
-
             <div className="mt-6 space-y-5">
               <input
                 type="text"
@@ -378,14 +350,12 @@ function Register() {
                 placeholder="Your full name"
                 className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
               />
-
               <PillSelect
                 label={role === "worker" ? "Category / Role" : "Help needed"}
                 options={CATEGORY_OPTIONS}
                 value={category}
                 onChange={setCategory}
               />
-
               <input
                 type="text"
                 value={location}
@@ -393,14 +363,12 @@ function Register() {
                 placeholder="Your area or neighbourhood, e.g. Banjara Hills"
                 className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
               />
-
               <PillSelect
                 label={role === "worker" ? "Available time" : "Required time"}
                 options={TIME_OPTIONS}
                 value={time}
                 onChange={setTime}
               />
-
               <div>
                 <p className="mb-2 font-body text-sm text-charcoalMuted">
                   {role === "worker"
@@ -454,12 +422,9 @@ function Register() {
                   />
                 </div>
               </div>
-
               <PillSelect
                 label={
-                  role === "worker"
-                    ? "Gender"
-                    : "Gender preference for worker"
+                  role === "worker" ? "Gender" : "Gender preference for worker"
                 }
                 options={
                   role === "worker"
@@ -469,7 +434,6 @@ function Register() {
                 value={gender}
                 onChange={setGender}
               />
-
               {role === "employer" && (
                 <div>
                   <label className="mb-1 block font-body text-sm text-charcoalMuted">
@@ -497,7 +461,6 @@ function Register() {
                 </div>
               )}
             </div>
-
             <Button
               className="mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!fullName.trim() || registering}
