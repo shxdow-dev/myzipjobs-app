@@ -84,4 +84,37 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+router.delete("/undo", async (req, res, next) => {
+  try {
+    const { swipedBy, swipedOn } = req.body;
+
+    if (
+      !mongoose.Types.ObjectId.isValid(swipedBy) ||
+      !mongoose.Types.ObjectId.isValid(swipedOn)
+    ) {
+      return res.status(400).json({ message: "Invalid user IDs" });
+    }
+
+    await Swipe.deleteOne({ swipedBy, swipedOn });
+    return res.json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/reset/:userId", async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid userId" });
+    }
+
+    await Swipe.deleteMany({ swipedBy: userId });
+    return res.json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 export default router;

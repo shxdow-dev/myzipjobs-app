@@ -3,15 +3,22 @@ import dotenv from "dotenv";
 import express from "express";
 import http from "http";
 import mongoose from "mongoose";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 import matchesRouter from "./routes/matches.js";
 import messagesRouter from "./routes/messages.js";
+import requestsRouter from "./routes/requests.js";
 import recommendRouter from "./routes/recommend.js";
 import seedRouter from "./routes/seed.js";
+import statsRouter from "./routes/stats.js";
+import ratingsRouter from "./routes/ratings.js";
+import sosRouter from "./routes/sos.js";
 import swipeRouter from "./routes/swipe.js";
 import usersRouter from "./routes/users.js";
 
-dotenv.config();
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: join(__dirname, ".env") });
 
 const app = express();
 const server = http.createServer(app);
@@ -73,6 +80,10 @@ app.use("/api/recommend", recommendRouter);
 app.use("/api/swipe", swipeRouter);
 app.use("/api/matches", matchesRouter);
 app.use("/api/messages", messagesRouter);
+app.use("/api/requests", requestsRouter);
+app.use("/api/stats", statsRouter);
+app.use("/api/ratings", ratingsRouter);
+app.use("/api/sos", sosRouter);
 app.use("/api/seed", seedRouter);
 
 app.use((err, _req, res, _next) => {
@@ -114,5 +125,4 @@ async function startServer() {
     process.exit(1);
   }
 }
-
 startServer();

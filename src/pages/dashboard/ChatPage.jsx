@@ -4,15 +4,22 @@ import {
   useRef,
   useState,
 } from "react";
-import { ArrowLeft, Send, User } from "lucide-react";
+import { ArrowLeft, Send, ShieldAlert, User } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AuthContext from "../../context/AuthContext";
+import SOSModal from "../../components/safety/SOSModal";
 import {
   getConversations,
   getMessages,
   sendMessage,
 } from "../../services/api.js";
 import socket from "../../services/socket.js";
+
+const QUICK_REPLIES = [
+  "Hi! I'm interested in working with you",
+  "Hello! When are you available?",
+  "Hi! Can we discuss the details?",
+];
 
 function formatTime(dateString) {
   return new Date(dateString).toLocaleTimeString("en-IN", {
@@ -47,7 +54,6 @@ function ChatSkeleton() {
       <div className="h-10 w-2/3 animate-pulse rounded-2xl bg-gray-200" />
       <div className="ml-auto h-10 w-1/2 animate-pulse rounded-2xl bg-gray-200" />
       <div className="h-10 w-3/5 animate-pulse rounded-2xl bg-gray-200" />
-      <div className="ml-auto h-10 w-2/5 animate-pulse rounded-2xl bg-gray-200" />
     </div>
   );
 }
@@ -64,6 +70,8 @@ function ChatPage({ role }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [sendPulse, setSendPulse] = useState(false);
+  const [showSOSModal, setShowSOSModal] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -131,8 +139,8 @@ function ChatPage({ role }) {
     scrollToBottom();
   }, [messages.length]);
 
-  const handleSend = async () => {
-    const trimmed = text.trim();
+  const sendText = async (messageText) => {
+    const trimmed = messageText.trim();
     if (!trimmed || !user?._id || !otherPerson?._id || sending) return;
 
     const tempId = `temp-${Date.now()}`;
@@ -150,6 +158,8 @@ function ChatPage({ role }) {
     setMessages((prev) => [...prev, optimistic]);
     setText("");
     setSending(true);
+    setSendPulse(true);
+    setTimeout(() => setSendPulse(false), 300);
     inputRef.current?.focus();
     scrollToBottom();
 
@@ -170,6 +180,14 @@ function ChatPage({ role }) {
     }
   };
 
+  const handleSend = () => sendText(text);
+
+  const handleInputChange = (event) => {
+    setText(event.target.value);
+    event.target.style.height = "auto";
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+  };
+
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -181,7 +199,7 @@ function ChatPage({ role }) {
     String(message.senderId?._id || message.senderId);
 
   return (
-    <div className="flex h-screen flex-col bg-warmWhite">
+    <div className="flex min-h-0 flex-1 flex-col bg-warmWhite">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[#e9ddd1] bg-warmWhite px-4 py-3">
         <button
           type="button"
@@ -189,7 +207,7 @@ function ChatPage({ role }) {
           onClick={() => navigate(`/dashboard/${role}/messages`)}
           className="rounded-lg p-2 text-charcoal transition-colors hover:bg-orangeLight"
         >
-          <ArrowLeft size={22} />
+          <ArrowLeft className="h-5 w-5" />
         </button>
 
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orangeLight">
@@ -200,17 +218,47 @@ function ChatPage({ role }) {
           <p className="truncate font-heading font-bold text-charcoal">
             {otherPerson?.name || "Chat"}
           </p>
-          {otherPerson?.category && (
-            <span className="rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
-              {otherPerson.category}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-success" />
+            <span className="font-body text-xs text-success">Online</span>
+          </div>
         </div>
+
+        <button
+          type="button"
+          aria-label="Report safety concern"
+          onClick={() => setShowSOSModal(true)}
+          className="rounded-lg border border-alert p-2 text-alert transition hover:bg-alert/5"
+        >
+          <ShieldAlert className="h-5 w-5" />
+        </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div className="flex-1 overflow-y-auto pb-40">
         {loading ? (
           <ChatSkeleton />
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center px-6 py-16 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-orangeLight">
+              <User className="h-8 w-8 text-teal" />
+            </div>
+            <p className="mt-4 font-heading text-lg font-bold text-charcoal">
+              You matched with {otherPerson?.name || "them"}!
+            </p>
+            <p className="mt-1 font-body text-charcoalMuted">Say hello 👋</p>
+            <div className="mt-6 flex w-full max-w-sm flex-col gap-2">
+              {QUICK_REPLIES.map((reply) => (
+                <button
+                  key={reply}
+                  type="button"
+                  onClick={() => sendText(reply)}
+                  className="rounded-full bg-tealLight px-4 py-2 font-body text-sm text-teal transition hover:brightness-95"
+                >
+                  {reply}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="space-y-3 p-4">
             {messages.map((message, index) => {
@@ -236,9 +284,9 @@ function ChatPage({ role }) {
                   >
                     <div className="max-w-[75%]">
                       <div
-                        className={`px-4 py-2.5 ${
+                        className={`px-4 py-2.5 shadow-sm ${
                           isSent
-                            ? "rounded-2xl rounded-br-sm bg-orange text-white"
+                            ? "rounded-2xl rounded-br-sm bg-gradient-to-br from-orange to-orangeDark text-white"
                             : "rounded-2xl rounded-bl-sm border border-[#e9ddd1] bg-white text-charcoal"
                         }`}
                       >
@@ -248,7 +296,7 @@ function ChatPage({ role }) {
                       </div>
                       <p
                         className={`mt-1 text-xs ${
-                          isSent ? "text-right text-orange/70" : "text-charcoalMuted"
+                          isSent ? "text-right text-charcoalMuted" : "text-charcoalMuted"
                         }`}
                       >
                         {formatTime(message.createdAt)}
@@ -263,12 +311,12 @@ function ChatPage({ role }) {
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t border-[#e9ddd1] bg-warmWhite p-3">
+      <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-[#e9ddd1] bg-warmWhite p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <textarea
             ref={inputRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
@@ -279,12 +327,20 @@ function ChatPage({ role }) {
             aria-label="Send message"
             disabled={!text.trim() || sending}
             onClick={handleSend}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange text-white transition-all hover:bg-orangeDark disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange text-white transition-all hover:bg-orangeDark disabled:cursor-not-allowed disabled:opacity-50 ${sendPulse ? "scale-110" : ""}`}
           >
             <Send size={20} />
           </button>
         </div>
       </div>
+
+      {showSOSModal && (
+        <SOSModal
+          matchId={matchId}
+          otherUser={otherPerson}
+          onClose={() => setShowSOSModal(false)}
+        />
+      )}
     </div>
   );
 }
