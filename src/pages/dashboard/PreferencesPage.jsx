@@ -50,7 +50,7 @@ function formatSalary(value) {
 function PillSelect({ label, options, value, onChange }) {
   return (
     <div>
-      <p className="mb-2 font-body text-sm text-charcoalMuted">{label}</p>
+      <p className="mb-2 font-body text-sm text-charcoalMuted dark:text-gray-400">{label}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
           <button
@@ -59,8 +59,8 @@ function PillSelect({ label, options, value, onChange }) {
             onClick={() => onChange(option)}
             className={`rounded-full border px-3 py-2 text-sm transition-colors ${
               value === option
-                ? "border-teal bg-tealLight text-charcoal"
-                : "border-charcoalMuted bg-warmWhite text-charcoalMuted"
+                ? "border-teal bg-tealLight text-teal dark:bg-teal/20"
+                : "border-charcoalMuted bg-white text-charcoalMuted dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             {option}
@@ -82,7 +82,7 @@ function MultiPillSelect({ label, options, values, onChange }) {
 
   return (
     <div>
-      <p className="mb-2 font-body text-sm text-charcoalMuted">{label}</p>
+      <p className="mb-2 font-body text-sm text-charcoalMuted dark:text-gray-400">{label}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
           <button
@@ -91,8 +91,8 @@ function MultiPillSelect({ label, options, values, onChange }) {
             onClick={() => toggle(option)}
             className={`rounded-full border px-3 py-2 text-sm transition-colors ${
               values.includes(option)
-                ? "border-teal bg-tealLight text-charcoal"
-                : "border-charcoalMuted bg-warmWhite text-charcoalMuted"
+                ? "border-teal bg-tealLight text-teal dark:bg-teal/20"
+                : "border-charcoalMuted bg-white text-charcoalMuted dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             {option}
@@ -222,7 +222,7 @@ function PreferencesPage() {
   const isWorker = user.role === "worker";
 
   return (
-    <PageMotion className="mx-auto max-w-lg pb-28">
+    <PageMotion className="mx-auto max-w-lg bg-warmWhite pb-28 dark:bg-gray-900">
       {toast && (
         <Toast
           message={toast.message}
@@ -231,7 +231,7 @@ function PreferencesPage() {
         />
       )}
 
-      <p className="font-body text-sm text-charcoalMuted">
+      <p className="font-body text-sm text-charcoalMuted dark:text-gray-400">
         Update what you&apos;re looking for. Changing preferences will refresh
         your profile pool.
       </p>
@@ -245,7 +245,7 @@ function PreferencesPage() {
         />
 
         <div>
-          <label className="mb-1 block font-body text-sm text-charcoalMuted">
+          <label className="mb-1 block font-body text-sm text-charcoalMuted dark:text-gray-400">
             {isWorker ? "Your Area" : "Area"}
           </label>
           <input
@@ -253,12 +253,12 @@ function PreferencesPage() {
             value={area}
             onChange={(e) => setArea(e.target.value)}
             placeholder="e.g. Banjara Hills"
-            className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
+            className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-white px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal dark:border-gray-600 dark:bg-gray-800 dark:text-white"
           />
         </div>
 
         <div>
-          <label className="mb-1 block font-body text-sm text-charcoalMuted">
+          <label className="mb-1 block font-body text-sm text-charcoalMuted dark:text-gray-400">
             City
           </label>
           <input
@@ -266,7 +266,7 @@ function PreferencesPage() {
             value={city}
             onChange={(e) => setCity(e.target.value)}
             placeholder="e.g. Hyderabad"
-            className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
+            className="h-[52px] w-full rounded-xl border border-charcoalMuted bg-white px-4 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal dark:border-gray-600 dark:bg-gray-800 dark:text-white"
           />
         </div>
 
@@ -278,7 +278,7 @@ function PreferencesPage() {
         />
 
         <div>
-          <p className="mb-2 font-body text-sm text-charcoalMuted">
+          <p className="mb-2 font-body text-sm text-charcoalMuted dark:text-gray-400">
             {isWorker ? "Expected Salary Range" : "Budget Range"}
           </p>
           <p className="mb-4 text-center font-heading text-lg text-orange">
@@ -341,14 +341,14 @@ function PreferencesPage() {
 
         {!isWorker && (
           <div>
-            <label className="mb-1 block font-body text-sm text-charcoalMuted">
+            <label className="mb-1 block font-body text-sm text-charcoalMuted dark:text-gray-400">
               Workers needed
             </label>
             <div className="relative">
               <select
                 value={membersRequired}
                 onChange={(e) => setMembersRequired(e.target.value)}
-                className="h-[52px] w-full appearance-none rounded-xl border border-charcoalMuted bg-warmWhite px-4 font-body text-charcoal focus:border-teal focus:outline-none focus:ring-2 focus:ring-tealLight"
+                className="h-[52px] w-full appearance-none rounded-xl border border-charcoalMuted bg-white px-4 font-body text-charcoal focus:border-teal focus:outline-none focus:ring-2 focus:ring-tealLight dark:border-gray-600 dark:bg-gray-800 dark:text-white"
               >
                 <option value="" disabled>
                   Select number of workers
@@ -374,7 +374,7 @@ function PreferencesPage() {
         />
 
         <div>
-          <label className="mb-1 block font-body text-sm text-charcoalMuted">
+          <label className="mb-1 block font-body text-sm text-charcoalMuted dark:text-gray-400">
             About
           </label>
           <textarea
@@ -386,16 +386,16 @@ function PreferencesPage() {
                 ? "Tell employers about yourself"
                 : "Describe the help you need"
             }
-            className="w-full rounded-xl border border-charcoalMuted bg-warmWhite px-4 py-3 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal"
+            className="w-full rounded-xl border border-charcoalMuted bg-white px-4 py-3 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-teal dark:border-gray-600 dark:bg-gray-800 dark:text-white"
           />
         </div>
       </div>
 
-      <div className="mb-4 mt-8 rounded-xl border border-dashed border-charcoalMuted p-4">
-        <p className="font-heading text-sm font-bold text-charcoal">
+      <div className="mb-4 mt-8 rounded-xl border border-dashed border-charcoalMuted p-4 dark:border-gray-600">
+        <p className="font-heading text-sm font-bold text-charcoal dark:text-white">
           Start Fresh
         </p>
-        <p className="mt-1 font-body text-sm text-charcoalMuted">
+        <p className="mt-1 font-body text-sm text-charcoalMuted dark:text-gray-400">
           Reset your swipe history to see all profiles again
         </p>
 
@@ -413,27 +413,28 @@ function PreferencesPage() {
             <p className="font-body text-sm text-charcoalMuted">
               This will show you all profiles again. Are you sure?
             </p>
-            <div className="mt-3 flex gap-2">
-              <Button
-                variant="outline"
-                className="min-h-0 flex-1 py-2 text-sm"
+            <div className="mt-3 flex gap-3">
+              <button
+                type="button"
                 onClick={() => setShowResetConfirm(false)}
+                className="flex h-12 flex-1 items-center justify-center rounded-xl border border-orange font-heading font-medium text-orange transition-colors hover:bg-orange hover:text-white"
               >
                 Cancel
-              </Button>
-              <Button
-                className="min-h-0 flex-1 border border-alert bg-transparent py-2 text-sm text-alert hover:bg-alert/5"
+              </button>
+              <button
+                type="button"
                 disabled={resetting}
                 onClick={handleReset}
+                className="flex h-12 flex-1 items-center justify-center rounded-xl border border-orange font-heading font-medium text-orange transition-colors hover:bg-orange hover:text-white disabled:opacity-50"
               >
                 Yes, Reset
-              </Button>
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 border-t border-[#e9ddd1] bg-warmWhite p-4">
+      <div className="fixed bottom-16 left-0 right-0 border-t border-[#e9ddd1] bg-warmWhite p-4 dark:border-gray-700 dark:bg-gray-900">
         <div className="mx-auto max-w-lg">
           <Button
             className="w-full disabled:cursor-not-allowed disabled:opacity-50"

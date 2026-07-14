@@ -106,7 +106,9 @@ function ReviewsPreviewModal({ userId, userName, onClose }) {
 
             <div className="mt-4 max-h-[60vh] space-y-3 overflow-y-auto pr-1">
               {reviews.map((review) => {
-                const rater = review.raterId;
+                const rater = review.ratedBy || review.raterId;
+                const stars = review.score ?? review.stars;
+                const comment = review.review ?? review.comment;
                 return (
                   <div
                     key={review._id}
@@ -120,12 +122,12 @@ function ReviewsPreviewModal({ userId, userName, onClose }) {
                         <p className="font-heading text-sm font-bold text-charcoal">
                           {rater?.name || "User"}
                         </p>
-                        <StarRow stars={review.stars} />
+                        <StarRow stars={stars} />
                       </div>
                     </div>
-                    {review.comment && (
+                    {comment && (
                       <p className="mt-3 font-body text-sm text-charcoalMuted">
-                        {review.comment}
+                        {comment}
                       </p>
                     )}
                     <p className="mt-2 text-xs text-charcoalMuted">

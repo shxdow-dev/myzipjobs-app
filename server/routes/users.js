@@ -96,13 +96,13 @@ router.get("/:userId", async (req, res, next) => {
     const ratingAgg = await Rating.aggregate([
       {
         $match: {
-          ratedUserId: new mongoose.Types.ObjectId(String(userId)),
+          ratedTo: new mongoose.Types.ObjectId(String(userId)),
         },
       },
       {
         $group: {
           _id: null,
-          avg: { $avg: "$stars" },
+          avg: { $avg: "$score" },
           count: { $sum: 1 },
         },
       },

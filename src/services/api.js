@@ -144,22 +144,27 @@ export const resetSwipeHistory = async (userId) => {
   return res.json();
 };
 
-export const submitRating = async (data) => {
-  const res = await fetch(`${import.meta.env.VITE_API_URL}/ratings`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  const body = await res.json();
-  if (!res.ok) {
-    return { error: true, message: body.message };
-  }
-  return body;
+export const submitRating = async (
+  matchId,
+  ratedBy,
+  ratedTo,
+  score,
+  review
+) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/jobs/${matchId}/rate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ratedBy, ratedTo, score, review }),
+    }
+  );
+  return res.json();
 };
 
-export const getUserRatings = async (userId) => {
+export const checkRating = async (matchId, ratedBy) => {
   const res = await fetch(
-    `${import.meta.env.VITE_API_URL}/ratings/user/${userId}`
+    `${import.meta.env.VITE_API_URL}/jobs/${matchId}/hasRated/${ratedBy}`
   );
   return res.json();
 };
@@ -167,6 +172,35 @@ export const getUserRatings = async (userId) => {
 export const checkAlreadyRated = async (matchId, userId) => {
   const res = await fetch(
     `${import.meta.env.VITE_API_URL}/ratings/match/${matchId}/${userId}`
+  );
+  return res.json();
+};
+
+export const markWorkDone = async (matchId, workerId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/jobs/${matchId}/done`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workerId }),
+    }
+  );
+  return res.json();
+};
+
+export const markJobDone = async (matchId, workerId) =>
+  markWorkDone(matchId, workerId);
+
+export const getJobStatus = async (matchId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/jobs/${matchId}/status`
+  );
+  return res.json();
+};
+
+export const getUserRatings = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/ratings/user/${userId}`
   );
   return res.json();
 };
@@ -190,6 +224,43 @@ export const getMySOSReports = async (userId) => {
 export const resolveSOS = async (alertId) => {
   const res = await fetch(
     `${import.meta.env.VITE_API_URL}/sos/${alertId}/resolve`,
+    { method: "PUT" }
+  );
+  return res.json();
+};
+
+export const getMatchHistory = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/matches/${userId}/history`
+  );
+  return res.json();
+};
+
+export const getNotifications = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/notifications/${userId}`
+  );
+  return res.json();
+};
+
+export const getUnreadNotificationCount = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/notifications/${userId}/unread`
+  );
+  return res.json();
+};
+
+export const markNotificationsRead = async (userId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/notifications/${userId}/markRead`,
+    { method: "PUT" }
+  );
+  return res.json();
+};
+
+export const markNotificationRead = async (notificationId) => {
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL}/notifications/${notificationId}/read`,
     { method: "PUT" }
   );
   return res.json();

@@ -7,26 +7,26 @@ const ratingSchema = new mongoose.Schema(
       ref: "Match",
       required: true,
     },
-    raterId: {
+    ratedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    ratedUserId: {
+    ratedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    stars: {
+    score: {
       type: Number,
-      required: true,
       min: 1,
       max: 5,
+      required: true,
     },
-    comment: {
+    review: {
       type: String,
-      maxlength: 300,
       default: "",
+      maxlength: 200,
     },
     createdAt: {
       type: Date,
@@ -36,7 +36,7 @@ const ratingSchema = new mongoose.Schema(
   { versionKey: false }
 );
 
-ratingSchema.index({ matchId: 1, raterId: 1 }, { unique: true });
+ratingSchema.index({ matchId: 1, ratedBy: 1 }, { unique: true });
 
 const Rating = mongoose.model("Rating", ratingSchema);
 

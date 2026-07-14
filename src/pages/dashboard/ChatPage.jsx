@@ -4,13 +4,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { ArrowLeft, Send, ShieldAlert, User } from "lucide-react";
+import { ArrowLeft, CheckCircle, Send, ShieldAlert, User } from "lucide-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AuthContext from "../../context/AuthContext";
+import WorkDoneConfirmModal from "../../components/common/WorkDoneConfirmModal";
 import SOSModal from "../../components/safety/SOSModal";
 import {
   getConversations,
+  getJobStatus,
   getMessages,
+  markJobDone,
   sendMessage,
 } from "../../services/api.js";
 import socket from "../../services/socket.js";
@@ -72,12 +75,19 @@ function ChatPage({ role }) {
   const [sending, setSending] = useState(false);
   const [sendPulse, setSendPulse] = useState(false);
   const [showSOSModal, setShowSOSModal] = useState(false);
+  const [jobStatus, setJobStatus] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
   const scrollToBottom = () => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
+  useEffect(() => {
+    if (!matchId) return;
+    getJobStatus(matchId).then(setJobStatus);
+  }, [matchId]);
 
   useEffect(() => {
     if (!user?._id || !matchId) return;
@@ -199,8 +209,8 @@ function ChatPage({ role }) {
     String(message.senderId?._id || message.senderId);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-warmWhite">
-      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[#e9ddd1] bg-warmWhite px-4 py-3">
+    <div className="flex min-h-0 flex-1 flex-col bg-gray-50 dark:bg-gray-900">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[#e9ddd1] bg-white px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
         <button
           type="button"
           aria-label="Back to conversations"
@@ -215,7 +225,7 @@ function ChatPage({ role }) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate font-heading font-bold text-charcoal">
+          <p className="truncate font-heading font-bold text-charcoal dark:text-white">
             {otherPerson?.name || "Chat"}
           </p>
           <div className="flex items-center gap-1.5">
@@ -233,6 +243,27 @@ function ChatPage({ role }) {
           <ShieldAlert className="h-5 w-5" />
         </button>
       </header>
+
+      {user?.role === "worker" &&
+        (jobStatus?.jobStatus === "completed" ? (
+          <div className="border-b border-success/30 bg-success/10 px-4 py-2 text-center">
+            <span className="font-body text-sm font-medium text-success">
+              ✅ Job Completed
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between border-b border-teal/30 bg-tealLight px-4 py-2">
+            <span className="font-body text-sm text-teal">Job in progress</span>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(true)}
+              className="flex items-center gap-1 rounded-xl bg-success px-3 py-1 font-heading text-xs text-white"
+            >
+              <CheckCircle className="h-3 w-3" />
+              Work Done ✓
+            </button>
+          </div>
+        ))}
 
       <div className="flex-1 overflow-y-auto pb-40">
         {loading ? (
@@ -286,8 +317,8 @@ function ChatPage({ role }) {
                       <div
                         className={`px-4 py-2.5 shadow-sm ${
                           isSent
-                            ? "rounded-2xl rounded-br-sm bg-gradient-to-br from-orange to-orangeDark text-white"
-                            : "rounded-2xl rounded-bl-sm border border-[#e9ddd1] bg-white text-charcoal"
+                            ? "rounded-2xl rounded-br-sm bg-gradient-to-br from-orange to-orangeDark text-white dark:from-orange dark:to-orangeDark"
+                            : "rounded-2xl rounded-bl-sm border border-[#e9ddd1] bg-white text-charcoal dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                         }`}
                       >
                         <p className="whitespace-pre-wrap break-words font-body text-sm">
@@ -311,7 +342,7 @@ function ChatPage({ role }) {
         )}
       </div>
 
-      <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-[#e9ddd1] bg-warmWhite p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-[#e9ddd1] bg-warmWhite p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] dark:border-gray-700 dark:bg-gray-800">
         <div className="mx-auto flex max-w-2xl items-end gap-2">
           <textarea
             ref={inputRef}
@@ -320,7 +351,7 @@ function ChatPage({ role }) {
             onKeyDown={handleKeyDown}
             placeholder="Type a message..."
             rows={1}
-            className="max-h-[120px] min-h-[44px] flex-1 resize-none rounded-xl border border-charcoalMuted bg-warmWhite px-4 py-2.5 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-tealLight"
+            className="max-h-[120px] min-h-[44px] flex-1 resize-none rounded-xl border border-charcoalMuted bg-white px-4 py-2.5 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-tealLight dark:border-gray-600 dark:bg-gray-700 dark:text-white"
           />
           <button
             type="button"
@@ -339,6 +370,19 @@ function ChatPage({ role }) {
           matchId={matchId}
           otherUser={otherPerson}
           onClose={() => setShowSOSModal(false)}
+        />
+      )}
+
+      {showConfirm && (
+        <WorkDoneConfirmModal
+          onConfirm={async () => {
+            const result = await markJobDone(matchId, user._id);
+            if (result.success) {
+              setJobStatus({ jobStatus: "completed" });
+              setShowConfirm(false);
+            }
+          }}
+          onCancel={() => setShowConfirm(false)}
         />
       )}
     </div>

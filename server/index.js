@@ -13,6 +13,8 @@ import recommendRouter from "./routes/recommend.js";
 import seedRouter from "./routes/seed.js";
 import statsRouter from "./routes/stats.js";
 import ratingsRouter from "./routes/ratings.js";
+import jobsRouter from "./routes/jobs.js";
+import notificationsRouter from "./routes/notifications.js";
 import sosRouter from "./routes/sos.js";
 import swipeRouter from "./routes/swipe.js";
 import usersRouter from "./routes/users.js";
@@ -83,6 +85,8 @@ app.use("/api/messages", messagesRouter);
 app.use("/api/requests", requestsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/ratings", ratingsRouter);
+app.use("/api/jobs", jobsRouter);
+app.use("/api/notifications", notificationsRouter);
 app.use("/api/sos", sosRouter);
 app.use("/api/seed", seedRouter);
 

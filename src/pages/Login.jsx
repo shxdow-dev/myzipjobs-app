@@ -3,6 +3,11 @@ import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Button from "../components/common/Button";
 import { useAuth } from "../context/AuthContext";
+import {
+  sendFirebaseOTP,
+  setupRecaptcha,
+  verifyFirebaseOTP,
+} from "../services/otpService.js";
 
 function Login() {
   const navigate = useNavigate();
@@ -11,6 +16,7 @@ function Login() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [otpError, setOtpError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [resendCountdown, setResendCountdown] = useState(30);
   const [resendMessage, setResendMessage] = useState("");
@@ -90,64 +96,91 @@ function Login() {
     otpRefs.current[5]?.focus();
   };
 
-  const resendOtp = () => {
+  const resendOtp = async () => {
     if (resendCountdown > 0) return;
 
     setOtp(["", "", "", "", "", ""]);
     setOtpError("");
     setLoginError("");
-    setResendCountdown(30);
-    setResendMessage("OTP resent.");
-    otpRefs.current[0]?.focus();
+    setupRecaptcha("recaptcha-container");
+    const result = await sendFirebaseOTP(phone);
+
+    if (result.success) {
+      setResendCountdown(30);
+      setResendMessage("OTP resent.");
+      otpRefs.current[0]?.focus();
+    } else {
+      setOtpError(result.message);
+    }
+  };
+
+  const handleSendOTP = async () => {
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      setupRecaptcha("recaptcha-container");
+      const result = await sendFirebaseOTP(phone);
+
+      if (result.success) {
+        setStep(2);
+      } else {
+        setOtpError(result.message || "Failed to send OTP.");
+      }
+    } catch {
+      setOtpError("Something went wrong. Try again.");
+    }
+
+    setOtpLoading(false);
   };
 
   const handleLogin = async () => {
-    if (otpValue !== "123456") {
-      setOtpError("Incorrect OTP. Please try again.");
+    setOtpLoading(true);
+    setOtpError("");
+    setLoginError("");
+
+    const otpResult = await verifyFirebaseOTP(otpValue);
+
+    if (!otpResult.valid) {
+      setOtpError(otpResult.message);
       setOtp(["", "", "", "", "", ""]);
+      otpRefs.current[0]?.focus();
+      setOtpLoading(false);
       return;
     }
 
     setLoggingIn(true);
-    setLoginError("");
-    setOtpError("");
 
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/users/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: `+91${phone}` }),
-        }
-      );
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: `+91${phone}` }),
+      });
+      const user = await res.json();
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          setLoginError("No account found. Please register first.");
-        } else {
-          setLoginError(data.message || "Login failed. Please try again.");
-        }
-        return;
+      if (user._id) {
+        setUser(user);
+        navigate(
+          user.role === "worker"
+            ? "/dashboard/worker"
+            : "/dashboard/employer"
+        );
+      } else {
+        setLoginError("No account found. Please register first.");
       }
-
-      setUser(data);
-      navigate(
-        data.role === "worker"
-          ? "/dashboard/worker"
-          : "/dashboard/employer"
-      );
-    } catch {
-      setLoginError("Login failed. Please try again.");
+    } catch (err) {
+      console.error("Login backend error:", err);
+      setLoginError("Login failed. Backend may not be running yet.");
     } finally {
       setLoggingIn(false);
+      setOtpLoading(false);
     }
   };
 
   return (
     <main className="px-6 py-10">
+      <div id="recaptcha-container" />
       <section className="mx-auto w-full max-w-[480px]">
         <button
           type="button"
@@ -183,11 +216,16 @@ function Login() {
 
             <Button
               className="mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={phone.length !== 10}
-              onClick={() => setStep(2)}
+              disabled={phone.length !== 10 || otpLoading}
+              onClick={handleSendOTP}
             >
-              Send OTP
+              {otpLoading ? "Sending..." : "Send OTP"}
             </Button>
+            {otpError && step === 1 && (
+              <p className="mt-2 text-center font-body text-sm text-alert">
+                {otpError}
+              </p>
+            )}
 
             <p className="mt-4 font-body text-sm text-charcoalMuted">
               Don&apos;t have an account?{" "}
@@ -249,10 +287,10 @@ function Login() {
 
             <Button
               className="mt-6 w-full disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={otpValue.length !== 6 || loggingIn}
+              disabled={otpValue.length !== 6 || otpLoading || loggingIn}
               onClick={handleLogin}
             >
-              {loggingIn ? "Logging in..." : "Login"}
+              {otpLoading || loggingIn ? "Logging in..." : "Login"}
             </Button>
 
             <button

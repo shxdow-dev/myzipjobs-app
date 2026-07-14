@@ -10,13 +10,13 @@ async function getRatingStats(userId) {
   const result = await Rating.aggregate([
     {
       $match: {
-        ratedUserId: new mongoose.Types.ObjectId(String(userId)),
+        ratedTo: new mongoose.Types.ObjectId(String(userId)),
       },
     },
     {
       $group: {
         _id: null,
-        avg: { $avg: "$stars" },
+        avg: { $avg: "$score" },
         count: { $sum: 1 },
       },
     },
@@ -30,13 +30,17 @@ async function getRatingStats(userId) {
 
 async function syncUserRating(userId) {
   const { average, count } = await getRatingStats(userId);
-  await User.findByIdAndUpdate(userId, { rating: average });
+  await User.findByIdAndUpdate(userId, { rating: average, jobsDone: count });
   return { average, count };
 }
 
 router.post("/", async (req, res, next) => {
   try {
-    const { matchId, raterId, ratedUserId, stars, comment } = req.body;
+    const { matchId, ratedBy, ratedTo, score, review } = req.body;
+    const raterId = ratedBy || req.body.raterId;
+    const ratedUserId = ratedTo || req.body.ratedUserId;
+    const stars = score ?? req.body.stars;
+    const comment = review ?? req.body.comment ?? "";
 
     if (
       !matchId ||
@@ -79,17 +83,17 @@ router.post("/", async (req, res, next) => {
       return res.status(400).json({ message: "Invalid rated user for match" });
     }
 
-    const existing = await Rating.findOne({ matchId, raterId });
+    const existing = await Rating.findOne({ matchId, ratedBy: raterId });
     if (existing) {
       return res.status(409).json({ message: "Already rated this match" });
     }
 
     const rating = await Rating.create({
       matchId,
-      raterId,
-      ratedUserId,
-      stars,
-      comment: comment || "",
+      ratedBy: raterId,
+      ratedTo: ratedUserId,
+      score: stars,
+      review: comment,
     });
 
     await syncUserRating(ratedUserId);
@@ -112,9 +116,9 @@ router.get("/user/:userId", async (req, res, next) => {
     }
 
     const ratings = await Rating.find({
-      ratedUserId: new mongoose.Types.ObjectId(String(userId)),
+      ratedTo: new mongoose.Types.ObjectId(String(userId)),
     })
-      .populate("raterId", "name category")
+      .populate("ratedBy", "name category")
       .sort({ createdAt: -1 });
 
     const { average, count } = await getRatingStats(userId);
@@ -140,17 +144,19 @@ router.get("/match/:matchId/:userId", async (req, res, next) => {
       return res.status(400).json({ message: "Invalid IDs" });
     }
 
-    const existing = await Rating.findOne({ matchId, raterId: userId });
+    const existing = await Rating.findOne({ matchId, ratedBy: userId });
 
     if (existing) {
       return res.json({
         alreadyRated: true,
-        stars: existing.stars,
-        comment: existing.comment,
+        hasRated: true,
+        score: existing.score,
+        stars: existing.score,
+        review: existing.review,
       });
     }
 
-    return res.json({ alreadyRated: false });
+    return res.json({ alreadyRated: false, hasRated: false });
   } catch (error) {
     return next(error);
   }

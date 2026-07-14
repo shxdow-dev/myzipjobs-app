@@ -4,6 +4,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import Button from "../components/common/Button";
 import { useAuth } from "../context/AuthContext";
 import { registerUser } from "../services/api";
+import {
+  sendFirebaseOTP,
+  setupRecaptcha,
+  verifyFirebaseOTP,
+} from "../services/otpService.js";
 
 const CATEGORY_OPTIONS = [
   "House Help",
@@ -65,6 +70,7 @@ function Register() {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [otpError, setOtpError] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(30);
   const [resendMessage, setResendMessage] = useState("");
   const [fullName, setFullName] = useState("");
@@ -157,22 +163,58 @@ function Register() {
     otpRefs.current[5]?.focus();
   };
 
-  const verifyOtp = () => {
-    if (otpValue !== "123456") {
-      setOtpError("Incorrect OTP. Please try again.");
+  const verifyOtp = async () => {
+    setOtpLoading(true);
+    setOtpError("");
+
+    const result = await verifyFirebaseOTP(otpValue);
+
+    if (result.valid) {
+      setStep(3);
+    } else {
+      setOtpError(result.message);
       setOtp(["", "", "", "", "", ""]);
-      return;
+      otpRefs.current[0]?.focus();
     }
-    setStep(3);
+
+    setOtpLoading(false);
   };
 
-  const resendOtp = () => {
+  const handleSendOTP = async () => {
+    setOtpLoading(true);
+    setOtpError("");
+
+    try {
+      setupRecaptcha("recaptcha-container");
+      const result = await sendFirebaseOTP(phone);
+
+      if (result.success) {
+        setStep(2);
+      } else {
+        setOtpError(result.message || "Failed to send OTP.");
+      }
+    } catch {
+      setOtpError("Something went wrong. Try again.");
+    }
+
+    setOtpLoading(false);
+  };
+
+  const resendOtp = async () => {
     if (resendCountdown > 0) return;
+
     setOtp(["", "", "", "", "", ""]);
     setOtpError("");
-    setResendCountdown(30);
-    setResendMessage("OTP resent.");
-    otpRefs.current[0]?.focus();
+    setupRecaptcha("recaptcha-container");
+    const result = await sendFirebaseOTP(phone);
+
+    if (result.success) {
+      setResendCountdown(30);
+      setResendMessage("OTP resent.");
+      otpRefs.current[0]?.focus();
+    } else {
+      setOtpError(result.message);
+    }
   };
 
   const completeProfile = async () => {
@@ -215,6 +257,7 @@ function Register() {
 
   return (
     <main className="px-6 py-10">
+      <div id="recaptcha-container" />
       <section className="mx-auto w-full max-w-[480px]">
         {step === 0 && !role && (
           <div className="mx-auto flex w-full flex-col gap-4 text-center">
@@ -271,11 +314,16 @@ function Register() {
             </div>
             <Button
               className="mt-6 w-full max-w-[360px] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={phone.length !== 10}
-              onClick={() => setStep(2)}
+              disabled={phone.length !== 10 || otpLoading}
+              onClick={handleSendOTP}
             >
-              Send OTP
+              {otpLoading ? "Sending..." : "Send OTP"}
             </Button>
+            {otpError && step === 1 && (
+              <p className="mt-2 text-center font-body text-sm text-alert">
+                {otpError}
+              </p>
+            )}
             <p className="mt-3 max-w-[360px] text-xs text-charcoalMuted">
               By continuing, you agree to our Terms of Service
             </p>
@@ -313,10 +361,10 @@ function Register() {
             {otpError && <p className="mt-3 text-sm text-alert">{otpError}</p>}
             <Button
               className="mt-6 w-full max-w-[360px] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={otpValue.length !== 6}
+              disabled={otpValue.length !== 6 || otpLoading}
               onClick={verifyOtp}
             >
-              Verify OTP
+              {otpLoading ? "Verifying..." : "Verify OTP"}
             </Button>
             <button
               type="button"
