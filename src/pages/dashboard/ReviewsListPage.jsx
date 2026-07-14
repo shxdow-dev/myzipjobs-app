@@ -73,7 +73,9 @@ function ReviewsListPage() {
       ) : (
         <div className="space-y-4">
           {reviews.map((review) => {
-            const rater = review.raterId;
+            const rater = review.ratedBy || review.raterId;
+            const stars = review.score ?? review.stars;
+            const comment = review.review ?? review.comment;
             return (
               <div
                 key={review._id}
@@ -87,12 +89,12 @@ function ReviewsListPage() {
                     <p className="font-heading text-sm font-bold text-charcoal">
                       {rater?.name || "User"}
                     </p>
-                    <StarRow stars={review.stars} />
+                    <StarRow stars={stars} />
                   </div>
                 </div>
-                {review.comment && (
+                {comment && (
                   <p className="mt-3 font-body text-sm text-charcoalMuted">
-                    {review.comment}
+                    {comment}
                   </p>
                 )}
                 <p className="mt-2 text-xs text-charcoalMuted">

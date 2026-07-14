@@ -1,6 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import {
+  Archive,
   BadgeCheck,
   CheckCircle,
   Clock,
@@ -8,20 +9,23 @@ import {
   IndianRupee,
   MapPin,
   SendHorizonal,
-  Star,
   User,
   X,
 } from "lucide-react";
 import PageMotion from "../components/common/PageMotion";
-import RatingModal from "../components/rating/RatingModal";
+import WorkDoneConfirmModal from "../components/common/WorkDoneConfirmModal";
+import MatchRatingModal from "../components/common/RatingModal";
 import AuthContext from "../context/AuthContext";
 import {
-  checkAlreadyRated,
+  checkRating,
   getIncomingRequests,
+  getMatchHistory,
   getMatches,
   getOutgoingRequests,
   getUserRatings,
+  markWorkDone,
   respondToRequest,
+  sendJobRequest,
 } from "../services/api.js";
 
 function formatTimeAgo(dateString) {
@@ -42,36 +46,13 @@ function formatWages(wages) {
   return `₹${(wages.min || 0).toLocaleString("en-IN")} — ₹${(wages.max || 0).toLocaleString("en-IN")}/mo`;
 }
 
-function StarsText({ count }) {
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          size={14}
-          className={
-            star <= count ? "fill-orange text-orange" : "text-gray-300"
-          }
-        />
-      ))}
-    </span>
-  );
-}
-
-function MatchRatingAction({
-  matchId,
-  otherUser,
-  userId,
-  ratingStatus,
-  onRated,
-  onOpenModal,
-}) {
+function MatchRatingAction({ matchId, ratingStatus, onOpenModal }) {
   const status = ratingStatus[matchId];
 
-  if (status?.alreadyRated) {
+  if (status?.hasRated) {
     return (
-      <p className="border-t border-[#e9ddd1] px-3 py-2 text-center font-body text-sm text-charcoalMuted">
-        You rated this <StarsText count={status.stars} />
+      <p className="text-center py-2 font-body text-sm text-charcoalMuted">
+        ✅ You&apos;ve rated this match
       </p>
     );
   }
@@ -79,10 +60,10 @@ function MatchRatingAction({
   return (
     <button
       type="button"
-      onClick={() => onOpenModal(matchId, otherUser)}
-      className="w-full border-t border-[#e9ddd1] py-2 font-body text-sm text-teal transition hover:bg-tealLight/30"
+      onClick={onOpenModal}
+      className="w-full rounded-b-xl py-2 font-body text-sm text-orange transition hover:bg-orangeLight"
     >
-      Rate this match
+      ⭐ Rate this match
     </button>
   );
 }
@@ -90,21 +71,56 @@ function MatchRatingAction({
 function MatchesPage() {
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
-  const { showToast, refreshRequestCount, setMatchData } =
-    useOutletContext() || {};
+  const { refreshRequestCount, setMatchData } = useOutletContext() || {};
+  const [toast, setToast] = useState(null);
   const [activeTab, setActiveTab] = useState("requests");
   const [incoming, setIncoming] = useState([]);
   const [outgoing, setOutgoing] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [ratingStatus, setRatingStatus] = useState({});
   const [senderRatings, setSenderRatings] = useState({});
   const [ratingModal, setRatingModal] = useState(null);
+  const [showWorkDone, setShowWorkDone] = useState(null);
+  const [requestSent, setRequestSent] = useState({});
+
+  const showToast = (message, type = "info") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleConfirmWorkDone = async (matchId) => {
+    const result = await markWorkDone(matchId, user._id);
+    if (result.success) {
+      setMatches((prev) => prev.filter((m) => m.matchId !== matchId));
+      setShowWorkDone(null);
+      showToast("Work marked as done! Great job 🎉", "success");
+      window.dispatchEvent(new CustomEvent("refreshHistory"));
+    } else {
+      showToast(result.message || "Could not mark work done", "error");
+    }
+  };
+
+  const loadHistory = () => {
+    if (!user?._id) return;
+    setHistoryLoading(true);
+    getMatchHistory(user._id)
+      .then((data) => {
+        const historyList = Array.isArray(data) ? data : [];
+        setHistory(historyList);
+        loadRatingStatus(historyList);
+      })
+      .finally(() => setHistoryLoading(false));
+  };
 
   const loadMatches = () => {
     if (!user?._id) return;
     getMatches(user._id).then((data) => {
-      setMatches(Array.isArray(data) ? data : []);
+      const matchList = Array.isArray(data) ? data : [];
+      setMatches(matchList);
+      loadRatingStatus(matchList);
     });
   };
 
@@ -113,7 +129,7 @@ function MatchesPage() {
 
     Promise.all(
       matchList.map((match) =>
-        checkAlreadyRated(match.matchId, user._id).then((res) => [
+        checkRating(match.matchId, user._id).then((res) => [
           match.matchId,
           res,
         ])
@@ -121,11 +137,29 @@ function MatchesPage() {
     ).then((results) => {
       const map = {};
       results.forEach(([id, res]) => {
-        map[id] = res;
+        map[id] = { hasRated: res.hasRated, score: res.score };
       });
       setRatingStatus((prev) => ({ ...prev, ...map }));
     });
   };
+
+  useEffect(() => {
+    if (!user?._id) return;
+
+    const handleRefresh = () => loadMatches();
+    const handleHistoryRefresh = () => loadHistory();
+    window.addEventListener("refreshMatches", handleRefresh);
+    window.addEventListener("refreshHistory", handleHistoryRefresh);
+    return () => {
+      window.removeEventListener("refreshMatches", handleRefresh);
+      window.removeEventListener("refreshHistory", handleHistoryRefresh);
+    };
+  }, [user?._id]);
+
+  useEffect(() => {
+    if (!user?._id || activeTab !== "history") return;
+    loadHistory();
+  }, [user?._id, activeTab]);
 
   useEffect(() => {
     if (!user?._id) return;
@@ -157,6 +191,13 @@ function MatchesPage() {
   }, [user, activeTab]);
 
   useEffect(() => {
+    if (!user?._id || activeTab !== "requests") return;
+    getIncomingRequests(user._id).then((data) => {
+      setIncoming(Array.isArray(data) ? data : []);
+    });
+  }, [user?._id, activeTab]);
+
+  useEffect(() => {
     if (incoming.length === 0) return;
 
     const uniqueIds = [
@@ -181,28 +222,23 @@ function MatchesPage() {
     return found?.matchId;
   };
 
-  const openRatingModal = async (matchId, otherUser) => {
-    const status = await checkAlreadyRated(matchId, user._id);
-    if (status.alreadyRated) {
-      setRatingStatus((prev) => ({ ...prev, [matchId]: status }));
-      return;
-    }
-    setRatingModal({ matchId, otherUser });
+  const openRatingModal = (match) => {
+    if (ratingStatus[match.matchId]?.hasRated) return;
+    setRatingModal(match);
   };
 
-  const handleRated = (matchId, stars) => {
+  const handleRated = (matchId) => {
     setRatingStatus((prev) => ({
       ...prev,
-      [matchId]: { alreadyRated: true, stars },
+      [matchId]: { hasRated: true },
     }));
-    showToast?.("Rating submitted! Thank you ⭐", "success");
   };
 
   const handleRespond = async (requestId, action, sender) => {
     try {
       const result = await respondToRequest(requestId, user._id, action);
       if (result.error) {
-        showToast?.(result.message || "Something went wrong.", "error");
+        showToast(result.message || "Something went wrong.", "error");
         return;
       }
       setIncoming((prev) => prev.filter((r) => r._id !== requestId));
@@ -213,17 +249,35 @@ function MatchesPage() {
           matchedProfile: result.matchedProfile || sender,
           matchId: result.matchId,
         });
-        showToast?.("Connected! You can now message them 🎉", "success");
+        showToast("Connected! You can now message them 🎉", "success");
         loadMatches();
         setActiveTab("matches");
       } else if (action === "reject") {
         getOutgoingRequests(user._id).then((data) => {
           setOutgoing(Array.isArray(data) ? data : []);
         });
-        showToast?.("Request declined", "error");
+        showToast("Request declined", "error");
       }
     } catch {
-      showToast?.("Something went wrong. Try again.", "error");
+      showToast("Something went wrong. Try again.", "error");
+    }
+  };
+
+  const handleRequestAgain = async (profile) => {
+    try {
+      const result = await sendJobRequest(user._id, profile._id, "");
+
+      if (result._id || result.success) {
+        setRequestSent((prev) => ({
+          ...prev,
+          [profile._id]: true,
+        }));
+        showToast(`Request sent to ${profile.name}!`, "success");
+      } else {
+        showToast(result.message || "Failed to send request", "error");
+      }
+    } catch {
+      showToast("Something went wrong", "error");
     }
   };
 
@@ -231,6 +285,7 @@ function MatchesPage() {
     { id: "requests", label: "Requests", badge: incoming.length },
     { id: "sent", label: "Sent" },
     { id: "matches", label: "Matches" },
+    { id: "history", label: "History" },
   ];
 
   if (loading) {
@@ -240,17 +295,17 @@ function MatchesPage() {
   }
 
   return (
-    <PageMotion className="p-4 pb-24">
+    <PageMotion className="min-h-screen bg-warmWhite p-4 pb-24 dark:bg-gray-900">
       <div className="mb-4 flex gap-2">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`relative flex h-11 flex-1 items-center justify-center rounded-full font-body text-sm transition-all ${
+            className={`relative flex h-11 flex-1 items-center justify-center rounded-full font-body text-xs transition-all sm:text-sm ${
               activeTab === tab.id
-                ? "bg-orange text-white shadow-md"
-                : "border border-charcoalMuted/30 bg-white text-charcoalMuted"
+                ? "bg-orange text-white shadow-md dark:bg-orange"
+                : "border border-charcoalMuted/30 bg-white text-charcoalMuted dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400"
             }`}
           >
             {tab.label}
@@ -286,7 +341,7 @@ function MatchesPage() {
               return (
                 <div
                   key={req._id}
-                  className="request-glow relative mb-3 overflow-hidden rounded-xl border border-[#e9ddd1] border-l-[3px] border-l-orange bg-warmWhite p-4 shadow-sm"
+                  className="request-glow relative mb-3 overflow-hidden rounded-xl border border-[#e9ddd1] border-l-[3px] border-l-orange bg-warmWhite p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
                 >
                   {senderStats?.count > 0 && (
                     <span className="absolute right-3 top-3 rounded-full bg-tealLight px-2 py-0.5 text-xs font-medium text-teal">
@@ -299,7 +354,7 @@ function MatchesPage() {
                     </div>
                     <div className={`min-w-0 flex-1 ${senderStats?.count > 0 ? "pr-16" : ""}`}>
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-heading font-bold text-charcoal">{sender.name}</p>
+                        <p className="font-heading font-bold text-charcoal dark:text-white">{sender.name}</p>
                         {sender.verified && <BadgeCheck size={16} className="text-teal" />}
                         {sender.category && (
                           <span className="rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
@@ -385,7 +440,7 @@ function MatchesPage() {
               return (
                 <div
                   key={req._id}
-                  className="mb-3 overflow-hidden rounded-xl border border-[#e9ddd1] border-l-[3px] border-l-teal bg-warmWhite"
+                  className="mb-3 overflow-hidden rounded-xl border border-[#e9ddd1] border-l-[3px] border-l-teal bg-warmWhite dark:border-gray-700 dark:bg-gray-800"
                 >
                   <div className="p-3">
                     <div className="flex items-center justify-between gap-3">
@@ -394,7 +449,7 @@ function MatchesPage() {
                           <User className="h-5 w-5 text-teal" />
                         </div>
                         <div>
-                          <p className="font-heading font-bold text-charcoal">{recipient.name}</p>
+                          <p className="font-heading font-bold text-charcoal dark:text-white">{recipient.name}</p>
                           {recipient.category && (
                             <span className="rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
                               {recipient.category}
@@ -437,13 +492,14 @@ function MatchesPage() {
                       {matchId && (
                         <MatchRatingAction
                           matchId={matchId}
-                          otherUser={{
-                            _id: recipient._id,
-                            name: recipient.name,
-                          }}
-                          userId={user._id}
                           ratingStatus={ratingStatus}
-                          onOpenModal={openRatingModal}
+                          onOpenModal={() =>
+                            openRatingModal({
+                              matchId,
+                              _id: recipient._id,
+                              name: recipient.name,
+                            })
+                          }
                         />
                       )}
                     </>
@@ -468,46 +524,56 @@ function MatchesPage() {
             matches.map((match) => (
               <div
                 key={match.matchId || match._id}
-                className="mb-3 overflow-hidden rounded-xl border border-orangeLight bg-warmWhite"
+                className="mb-3 overflow-hidden rounded-xl border border-orangeLight bg-warmWhite dark:border-gray-700 dark:bg-gray-800"
               >
                 <div className="flex items-center gap-3 p-3">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orangeLight">
                     <User className="h-6 w-6 text-teal" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-heading font-bold text-charcoal">{match.name}</p>
+                    <p className="font-heading font-bold text-charcoal dark:text-white">{match.name}</p>
                     <span className="rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
                       {match.category}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/dashboard/${user.role}/messages/${match.matchId}`, {
-                        state: {
-                          otherPerson: {
-                            _id: match._id,
-                            name: match.name,
-                            category: match.category,
-                            role: match.role,
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(`/dashboard/${user.role}/messages/${match.matchId}`, {
+                          state: {
+                            otherPerson: {
+                              _id: match._id,
+                              name: match.name,
+                              category: match.category,
+                              role: match.role,
+                            },
                           },
-                        },
-                      })
-                    }
-                    className="rounded-xl border border-teal px-3 py-1.5 font-body text-sm text-teal"
-                  >
-                    Message
-                  </button>
+                        })
+                      }
+                      className="whitespace-nowrap rounded-xl border border-teal px-3 py-1.5 font-body text-sm text-teal"
+                    >
+                      Message
+                    </button>
+                    {user.role === "worker" && (
+                      <button
+                        type="button"
+                        onClick={() => setShowWorkDone(match.matchId)}
+                        className="flex items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-success px-3 py-1.5 font-body text-sm text-success"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Work Done
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <div className="bg-success py-1 text-center text-sm text-white">
+                <div className="bg-success py-1 text-center font-body text-sm text-white">
                   Connected ✓
                 </div>
                 <MatchRatingAction
                   matchId={match.matchId}
-                  otherUser={{ _id: match._id, name: match.name }}
-                  userId={user._id}
                   ratingStatus={ratingStatus}
-                  onOpenModal={openRatingModal}
+                  onOpenModal={() => openRatingModal(match)}
                 />
               </div>
             ))
@@ -515,13 +581,94 @@ function MatchesPage() {
         </div>
       )}
 
-      {ratingModal && (
-        <RatingModal
-          matchId={ratingModal.matchId}
-          ratedUser={ratingModal.otherUser}
-          onClose={() => setRatingModal(null)}
-          onSubmitted={(stars) => handleRated(ratingModal.matchId, stars)}
+      {activeTab === "history" && (
+        <div>
+          {historyLoading ? (
+            <div className="mt-16 text-center text-charcoalMuted">Loading...</div>
+          ) : history.length === 0 ? (
+            <div className="mt-16 flex flex-col items-center text-center">
+              <Archive size={48} className="text-charcoalMuted" />
+              <p className="mt-4 font-heading text-xl text-charcoal">No past matches yet</p>
+              <p className="mt-2 font-body text-charcoalMuted">
+                Completed matches appear here
+              </p>
+            </div>
+          ) : (
+            history.map((item) => (
+              <div
+                key={item.matchId}
+                className="mb-3 overflow-hidden rounded-xl border border-[#e9ddd1] border-l-[3px] border-l-gray-300 bg-warmWhite opacity-90 dark:border-gray-700 dark:bg-gray-800"
+              >
+                <div className="flex items-center gap-3 p-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <User className="h-5 w-5 text-charcoalMuted" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-heading font-bold text-charcoal dark:text-white">{item.name}</p>
+                    {item.category && (
+                      <span className="mt-0.5 inline-block rounded-full bg-tealLight px-2 py-0.5 text-xs text-teal">
+                        {item.category}
+                      </span>
+                    )}
+                    <p className="mt-1 font-body text-xs text-charcoalMuted">
+                      Worked together · {formatTimeAgo(item.closedAt)}
+                    </p>
+                  </div>
+                  {!requestSent[item._id] ? (
+                    <button
+                      type="button"
+                      onClick={() => handleRequestAgain(item)}
+                      className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-teal px-3 py-1.5 font-body text-sm text-teal"
+                    >
+                      <SendHorizonal className="h-3 w-3" />
+                      Request Again
+                    </button>
+                  ) : (
+                    <span className="shrink-0 font-body text-xs text-success">
+                      ✅ Request Sent
+                    </span>
+                  )}
+                </div>
+                <MatchRatingAction
+                  matchId={item.matchId}
+                  ratingStatus={ratingStatus}
+                  onOpenModal={() => openRatingModal(item)}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {showWorkDone && (
+        <WorkDoneConfirmModal
+          onConfirm={() => handleConfirmWorkDone(showWorkDone)}
+          onCancel={() => setShowWorkDone(null)}
         />
+      )}
+
+      {ratingModal && (
+        <MatchRatingModal
+          match={ratingModal}
+          currentUser={user}
+          onClose={() => setRatingModal(null)}
+          onSubmitted={handleRated}
+          showToast={showToast}
+        />
+      )}
+
+      {toast && (
+        <div
+          className={`fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-xl px-5 py-3 font-body text-sm text-white shadow-lg ${
+            toast.type === "success"
+              ? "bg-success"
+              : toast.type === "error"
+                ? "bg-alert"
+                : "bg-orange"
+          }`}
+        >
+          {toast.message}
+        </div>
       )}
     </PageMotion>
   );

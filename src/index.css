@@ -6,12 +6,35 @@
 
 @layer base {
   body {
-    @apply bg-warmWhite text-charcoal font-body;
+    @apply bg-warmWhite font-body text-charcoal dark:bg-gray-900 dark:text-white;
   }
 
   #root {
     @apply min-h-screen;
   }
+}
+
+.dark {
+  --color-bg: #1a1614;
+  --color-surface: #2a2320;
+  --color-border: #3a3330;
+  --color-text: #f5f0eb;
+  --color-muted: #9a9088;
+}
+
+.light {
+  --color-bg: #fff8f0;
+  --color-surface: #ffffff;
+  --color-border: #e8e0d8;
+  --color-text: #2b2620;
+  --color-muted: #6b6259;
+}
+
+* {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
 }
 
 input[type="range"]::-webkit-slider-thumb {

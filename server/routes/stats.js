@@ -24,6 +24,8 @@ router.get("/:userId", async (req, res, next) => {
 
     const totalMatches = await Match.countDocuments({
       $or: [{ worker: userId }, { employer: userId }],
+      jobStatus: { $ne: "closed" },
+      status: "active",
     });
 
     const unreadMessages = await Message.countDocuments({
@@ -53,13 +55,13 @@ router.get("/:userId", async (req, res, next) => {
     const ratingAgg = await Rating.aggregate([
       {
         $match: {
-          ratedUserId: new mongoose.Types.ObjectId(String(userId)),
+          ratedTo: new mongoose.Types.ObjectId(String(userId)),
         },
       },
       {
         $group: {
           _id: null,
-          avg: { $avg: "$stars" },
+          avg: { $avg: "$score" },
           count: { $sum: 1 },
         },
       },
@@ -72,6 +74,7 @@ router.get("/:userId", async (req, res, next) => {
 
     const recentMatches = await Match.find({
       $or: [{ worker: userId }, { employer: userId }],
+      jobStatus: { $ne: "closed" },
     })
       .populate("worker", "name category role rating jobsDone location")
       .populate("employer", "name category role rating jobsDone location")

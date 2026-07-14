@@ -40,7 +40,7 @@ function SwipeStack({ userRole, onMatch }) {
   const [requestTarget, setRequestTarget] = useState(null);
   const [requestMessage, setRequestMessage] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
-  const [lastPassed, setLastPassed] = useState(null);
+  const [swipeHistory, setSwipeHistory] = useState([]);
   const [toasts, setToasts] = useState([]);
 
   const showToast = useCallback((message, type = "info") => {
@@ -60,6 +60,7 @@ function SwipeStack({ userRole, onMatch }) {
       const data = await getRecommendations(currentUser._id);
       setProfiles(data.profiles || []);
       setExpanded(data.expanded || false);
+      setSwipeHistory([]);
     } catch {
       setError(true);
     } finally {
@@ -79,7 +80,7 @@ function SwipeStack({ userRole, onMatch }) {
 
     try {
       await recordSwipe(currentUser._id, profile._id, "pass");
-      setLastPassed(profile);
+      setSwipeHistory((prev) => [...prev, { profile, action: "pass" }]);
       setProfiles((prev) => prev.filter((p) => p._id !== profile._id));
     } catch {
       setError(true);
@@ -91,12 +92,20 @@ function SwipeStack({ userRole, onMatch }) {
   };
 
   const handleUndo = async () => {
-    if (!lastPassed || !currentUser?._id) return;
+    if (swipeHistory.length === 0 || !currentUser?._id) return;
+
+    const lastEntry = swipeHistory[swipeHistory.length - 1];
 
     try {
-      await undoSwipe(currentUser._id, lastPassed._id);
-      setProfiles((prev) => [lastPassed, ...prev]);
-      setLastPassed(null);
+      if (lastEntry.action === "pass" || lastEntry.action === "connect") {
+        await undoSwipe(currentUser._id, lastEntry.profile._id);
+      }
+
+      setProfiles((prev) => {
+        if (prev.some((p) => p._id === lastEntry.profile._id)) return prev;
+        return [lastEntry.profile, ...prev];
+      });
+      setSwipeHistory((prev) => prev.slice(0, -1));
     } catch {
       showToast("Could not undo swipe", "error");
     }
@@ -114,6 +123,7 @@ function SwipeStack({ userRole, onMatch }) {
         profile._id,
         "connect"
       );
+      setSwipeHistory((prev) => [...prev, { profile, action: "connect" }]);
       setProfiles((prev) => prev.filter((p) => p._id !== profile._id));
 
       if (result.matched) {
@@ -156,6 +166,11 @@ function SwipeStack({ userRole, onMatch }) {
       }
 
       showToast(`Request sent to ${requestTarget.name}!`, "success");
+      setSwipeHistory((prev) => [
+        ...prev,
+        { profile: requestTarget, action: "request" },
+      ]);
+      setProfiles((prev) => prev.filter((p) => p._id !== requestTarget._id));
       setShowRequestModal(false);
       setRequestTarget(null);
       setRequestMessage("");
@@ -316,14 +331,15 @@ function SwipeStack({ userRole, onMatch }) {
         </button>
       </div>
 
-      {lastPassed && profiles.length > 0 && (
+      {swipeHistory.length > 0 && (
         <button
           type="button"
           onClick={handleUndo}
-          className="mx-auto mt-3 flex items-center gap-2 rounded-xl border border-teal px-4 py-2 font-body text-sm text-teal transition hover:bg-tealLight"
+          disabled={swipeHistory.length === 0}
+          className="mx-auto mt-3 flex items-center gap-2 rounded-xl border border-teal px-4 py-2 font-body text-sm text-teal transition hover:bg-tealLight disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Undo2 className="h-4 w-4" />
-          Undo — show {lastPassed.name} again
+          Undo — show {swipeHistory[swipeHistory.length - 1].profile.name} again
         </button>
       )}
 

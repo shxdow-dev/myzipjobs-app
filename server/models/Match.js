@@ -21,6 +21,20 @@ const matchSchema = new mongoose.Schema(
       enum: ["active", "closed"],
       default: "active",
     },
+    jobStatus: {
+      type: String,
+      enum: ["active", "closed"],
+      default: "active",
+    },
+    closedAt: {
+      type: Date,
+      default: null,
+    },
+    closedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { versionKey: false }
 );

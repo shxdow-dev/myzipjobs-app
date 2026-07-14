@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { submitRating } from "../../services/api.js";
 import Button from "../common/Button";
 
-function RatingModal({ matchId, ratedUser, onClose, onSubmitted }) {
+function LegacyRatingModal({ matchId, ratedUser, onClose, onSubmitted }) {
   const { user } = useAuth();
   const [selectedStars, setSelectedStars] = useState(0);
   const [comment, setComment] = useState("");
@@ -26,15 +26,15 @@ function RatingModal({ matchId, ratedUser, onClose, onSubmitted }) {
     setError("");
 
     try {
-      const result = await submitRating({
+      const result = await submitRating(
         matchId,
-        raterId: user._id,
-        ratedUserId: ratedUser._id,
-        stars: selectedStars,
-        comment,
-      });
+        user._id,
+        ratedUser._id,
+        selectedStars,
+        comment
+      );
 
-      if (result.error) {
+      if (!result.success) {
         setError(result.message || "Could not submit rating");
         return;
       }
@@ -97,14 +97,14 @@ function RatingModal({ matchId, ratedUser, onClose, onSubmitted }) {
         <div className="relative mt-6">
           <textarea
             value={comment}
-            onChange={(e) => setComment(e.target.value.slice(0, 300))}
+            onChange={(e) => setComment(e.target.value.slice(0, 200))}
             placeholder="Leave a comment (optional)"
             rows={3}
-            maxLength={300}
+            maxLength={200}
             className="w-full rounded-xl border border-charcoalMuted px-3 py-2 font-body text-charcoal outline-none focus:border-teal focus:ring-1 focus:ring-tealLight"
           />
           <span className="absolute bottom-2 right-3 text-xs text-charcoalMuted">
-            {comment.length}/300
+            {comment.length}/200
           </span>
         </div>
 
@@ -133,4 +133,4 @@ function RatingModal({ matchId, ratedUser, onClose, onSubmitted }) {
   );
 }
 
-export default RatingModal;
+export default LegacyRatingModal;

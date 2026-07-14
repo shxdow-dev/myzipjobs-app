@@ -88,10 +88,10 @@ function ProfileCard({ profile, userRole }) {
   ].filter(Boolean);
 
   return (
-    <div className="swipe-card flex h-full flex-col overflow-hidden rounded-2xl border border-[#e9ddd1] bg-white shadow-sm">
-      <div className="rounded-t-2xl bg-gradient-to-br from-orangeLight to-orange/20 px-6 py-6 text-center">
+    <div className="swipe-card flex h-full flex-col overflow-hidden rounded-2xl border border-[#e9ddd1] bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+      <div className="rounded-t-2xl bg-gradient-to-br from-orangeLight to-orange/20 px-6 py-6 text-center dark:from-gray-700 dark:to-gray-800">
         <div className="relative mx-auto mb-3 inline-block">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm dark:bg-gray-800">
             <User size={36} className="text-teal" />
           </div>
           {profile.verified && (
@@ -101,7 +101,7 @@ function ProfileCard({ profile, userRole }) {
             />
           )}
         </div>
-        <h2 className="font-heading text-xl font-bold text-charcoal">
+        <h2 className="font-heading text-xl font-bold text-charcoal dark:text-white">
           {profile.name}
         </h2>
         {profile.category && (
@@ -111,18 +111,18 @@ function ProfileCard({ profile, userRole }) {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto rounded-b-2xl bg-white px-4 py-2">
+      <div className="flex flex-1 flex-col overflow-y-auto rounded-b-2xl bg-white px-4 py-2 dark:bg-gray-800">
         {infoRows.map((row, index) => {
           const Icon = row.icon;
           return (
             <div
               key={index}
               className={`flex items-center gap-2 py-2 ${
-                index < infoRows.length - 1 ? "border-b border-gray-100" : ""
+                index < infoRows.length - 1 ? "border-b border-gray-100 dark:border-gray-700" : ""
               }`}
             >
               <Icon size={18} className="shrink-0 text-teal" />
-              <span className="font-body text-sm text-charcoalMuted">
+              <span className="font-body text-sm text-charcoalMuted dark:text-gray-400">
                 {row.text}
               </span>
             </div>
@@ -130,19 +130,19 @@ function ProfileCard({ profile, userRole }) {
         })}
 
         {ratingCount > 0 && (
-          <div className="border-b border-gray-100 py-2">
+          <div className="border-b border-gray-100 py-2 dark:border-gray-700">
             <StarRating averageRating={averageRating} />
           </div>
         )}
 
         {isWorkerProfile && profile.experience && (
-          <p className="border-b border-gray-100 py-2 font-body text-sm text-charcoalMuted">
+          <p className="border-b border-gray-100 py-2 font-body text-sm text-charcoalMuted dark:border-gray-700 dark:text-gray-400">
             Experience: {profile.experience}
           </p>
         )}
 
         {profile.about && (
-          <p className="py-3 font-body text-sm leading-relaxed text-charcoalMuted">
+          <p className="py-3 font-body text-sm leading-relaxed text-charcoalMuted dark:text-gray-400">
             {profile.about}
           </p>
         )}

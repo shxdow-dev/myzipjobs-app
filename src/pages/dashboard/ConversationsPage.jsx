@@ -97,7 +97,7 @@ function ConversationsPage() {
                 { state: { otherPerson: conversation.otherPerson } }
               )
             }
-            className="mb-3 flex w-full items-center gap-3 rounded-xl border border-[#e9ddd1] bg-warmWhite p-3 text-left transition-colors hover:bg-orangeLight/30"
+            className="mb-3 flex w-full items-center gap-3 rounded-xl border border-[#e9ddd1] bg-white p-3 text-left transition-colors hover:bg-orangeLight/30 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700/50"
           >
             <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-orangeLight">
               <User className="h-6 w-6 text-teal" />
@@ -107,7 +107,7 @@ function ConversationsPage() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <p
-                  className={`font-heading text-charcoal ${hasUnread ? "font-bold" : "font-bold"}`}
+                  className={`font-heading text-charcoal dark:text-white ${hasUnread ? "font-bold" : "font-bold"}`}
                 >
                   {conversation.otherPerson.name}
                 </p>
@@ -125,8 +125,8 @@ function ConversationsPage() {
                   <p
                     className={`mt-1 truncate font-body text-sm ${
                       hasUnread
-                        ? "font-semibold text-charcoal"
-                        : "text-charcoalMuted"
+                        ? "font-semibold text-charcoal dark:text-white"
+                        : "text-charcoalMuted dark:text-gray-400"
                     }`}
                   >
                     {conversation.lastMessage.text.slice(0, 40)}

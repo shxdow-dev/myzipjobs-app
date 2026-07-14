@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, User } from "lucide-react";
 import PageMotion from "../common/PageMotion";
@@ -54,7 +54,7 @@ function StatCard({ icon: Icon, iconClass, value, label, borderClass, highlight,
 
   return (
     <div
-      className={`rounded-2xl border border-orangeLight border-l-4 ${borderClass} bg-warmWhite p-4 transition hover:scale-[1.02] hover:shadow-md`}
+      className={`rounded-2xl border border-orangeLight border-l-4 ${borderClass} bg-white p-4 transition hover:scale-[1.02] hover:shadow-md dark:border-gray-700 dark:bg-gray-800`}
     >
       <Icon className={`h-6 w-6 ${iconClass}`} />
       <p
@@ -62,13 +62,13 @@ function StatCard({ icon: Icon, iconClass, value, label, borderClass, highlight,
           highlight && !isZero
             ? highlightColor
             : isZero
-              ? "text-charcoalMuted"
-              : "text-charcoal"
+              ? "text-charcoalMuted dark:text-gray-400"
+              : "text-charcoal dark:text-white"
         }`}
       >
         {value}
       </p>
-      <p className="font-body text-sm text-charcoalMuted">{label}</p>
+      <p className="font-body text-sm text-charcoalMuted dark:text-gray-400">{label}</p>
     </div>
   );
 }
@@ -79,12 +79,25 @@ function DashboardHome({ role }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
 
+  const fetchStats = useCallback(async () => {
+    if (!user?._id) return;
+    const data = await getDashboardStats(user._id);
+    setStats(data);
+  }, [user?._id]);
+
   useEffect(() => {
     if (!user?._id) return;
-    getDashboardStats(user._id)
-      .then((data) => setStats(data))
-      .finally(() => setLoading(false));
-  }, [user?._id]);
+    setLoading(true);
+    fetchStats().finally(() => setLoading(false));
+  }, [user?._id, fetchStats]);
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      fetchStats();
+    };
+    window.addEventListener("refreshDashboardStats", handleRefresh);
+    return () => window.removeEventListener("refreshDashboardStats", handleRefresh);
+  }, [fetchStats]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -114,11 +127,11 @@ function DashboardHome({ role }) {
 
   return (
     <PageMotion className="-mx-4">
-      <div className="mx-4 mb-4 rounded-2xl bg-gradient-to-r from-orangeLight to-tealLight p-5">
-        <h1 className="font-heading text-2xl font-bold text-charcoal">
+      <div className="mx-4 mb-4 rounded-2xl bg-gradient-to-r from-orangeLight to-tealLight p-5 dark:from-gray-800 dark:to-gray-700">
+        <h1 className="font-heading text-2xl font-bold text-charcoal dark:text-white">
           Good {timeOfDay}, {user.name} 👋
         </h1>
-        <p className="mt-1 font-body text-charcoalMuted">{greetingSubtext}</p>
+        <p className="mt-1 font-body text-charcoalMuted dark:text-gray-400">{greetingSubtext}</p>
       </div>
 
       {showProfileHint && (
@@ -168,7 +181,7 @@ function DashboardHome({ role }) {
 
       <div className="mb-6">
         <div className="mb-3 flex items-center justify-between px-4">
-          <h2 className="font-heading font-bold text-charcoal">Recent Matches</h2>
+          <h2 className="font-heading font-bold text-charcoal dark:text-white">Recent Matches</h2>
           <button
             type="button"
             onClick={() => navigate(`${basePath}/matches`)}
@@ -179,7 +192,7 @@ function DashboardHome({ role }) {
         </div>
 
         {recentMatches.length === 0 ? (
-          <p className="py-4 text-center font-body text-sm text-charcoalMuted">
+          <p className="py-4 text-center font-body text-sm text-charcoalMuted dark:text-gray-400">
             No matches yet — start swiping!
           </p>
         ) : (
@@ -187,12 +200,12 @@ function DashboardHome({ role }) {
             {recentMatches.map(({ matchId, profile }) => (
               <div
                 key={matchId}
-                className="min-w-[140px] rounded-2xl border border-orangeLight bg-warmWhite p-3 text-center"
+                className="min-w-[140px] rounded-2xl border border-orangeLight bg-white p-3 text-center dark:border-gray-700 dark:bg-gray-800"
               >
                 <div className="relative mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orangeLight ring-2 ring-teal ring-offset-2">
                   <User className="h-7 w-7 text-teal" />
                 </div>
-                <p className="mx-auto mt-2 max-w-[120px] truncate font-heading text-sm font-bold text-charcoal">
+                <p className="mx-auto mt-2 max-w-[120px] truncate font-heading text-sm font-bold text-charcoal dark:text-white">
                   {profile.name}
                 </p>
                 {profile.category && (
@@ -232,7 +245,7 @@ function DashboardHome({ role }) {
       </div>
 
       <div className="px-4 pb-24">
-        <h2 className="mb-3 font-heading font-bold text-charcoal">Quick Actions</h2>
+        <h2 className="mb-3 font-heading font-bold text-charcoal dark:text-white">Quick Actions</h2>
         <div className="space-y-3">
           <button
             type="button"

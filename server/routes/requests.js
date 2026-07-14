@@ -28,6 +28,9 @@ router.get("/incoming/:userId", async (req, res) => {
       .populate("sentBy", userFields)
       .sort({ createdAt: -1 });
 
+    console.log("Fetching requests for:", userId);
+    console.log("Results:", requests.length);
+
     res.json(requests);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -66,15 +69,31 @@ router.post("/send", async (req, res) => {
     }
 
     const { workerId, employerId } = getWorkerEmployerIds(sender, receiver);
-    const existingMatch = await Match.findOne({ worker: workerId, employer: employerId });
+    const existingMatch = await Match.findOne({
+      worker: workerId,
+      employer: employerId,
+      jobStatus: { $ne: "closed" },
+    });
     if (existingMatch) {
       return res.status(400).json({ message: "You are already matched" });
     }
 
-    const existing = await Request.findOne({ sentBy, sentTo });
-    if (existing) {
-      return res.status(409).json({ message: "Request already sent" });
+    const existingRequest = await Request.findOne({
+      $or: [
+        { sentBy, sentTo },
+        { sentBy: sentTo, sentTo: sentBy },
+      ],
+      status: "pending",
+    });
+    if (existingRequest) {
+      return res.status(409).json({ message: "Request already pending" });
     }
+
+    console.log("Request being created:", {
+      sentBy,
+      sentTo,
+      status: "pending",
+    });
 
     const request = await Request.create({
       sentBy,
@@ -149,7 +168,12 @@ router.post("/:requestId/respond", async (req, res) => {
 
       const match = await Match.findOneAndUpdate(
         { worker: workerId, employer: employerId },
-        { status: "active" },
+        {
+          status: "active",
+          jobStatus: "active",
+          closedAt: null,
+          closedBy: null,
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
